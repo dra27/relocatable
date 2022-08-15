@@ -131,7 +131,8 @@ function rebase
       sha="${instr#* }"
       case ${instr% *} in
         pick)
-          git cherry-pick --no-commit "$sha"
+          echo "cherry-pick $sha to $target"
+          git cherry-pick --no-commit "$sha" >& /dev/null
           git reset -- Changes &> /dev/null
           git checkout -- Changes &> /dev/null
           TO_DELETE=()
@@ -159,6 +160,7 @@ function rebase
             commit "$sha" 'pick $head' "$instr"
           fi;;
         bootstrap)
+          echo "Bootstrap $target ($sha)"
           cached="$(git reflog --format='%h %p' | grep " $(git rev-parse --short HEAD)$" | head -n 1 | cut -f1 -d' ')"
           if [[ -n $cached ]]; then
             echo "Re-using previous bootstrap computation from $cached"
@@ -226,8 +228,10 @@ for instr in "${COMMANDS[@]}"; do
       if ((aborting)); then
         echo "$instr" >> "$state_file"
       else
+        target_branch="relocatable-${arg%.*}"
+        echo "Creating branch $target_branch"
         target="$arg"
-        git checkout -B "relocatable-${arg%.*}" "$arg" &> /dev/null
+        git checkout -B "$target_branch" "$arg" &> /dev/null
         WORKING=("${COMMITS[@]}")
         COMMITS=()
         rebase
