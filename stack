@@ -168,17 +168,17 @@ function rebase
             COMMITS+=("$instr")
           else
             echo "Bootstrapping..."
-            if ! ./configure --disable-native-compiler --disable-ocamldoc --disable-ocamltest --disable-debugger > _log; then
+            if ! ./configure --disable-native-compiler --disable-ocamldoc --disable-ocamltest --disable-debugger > _log 2>&1; then
               cat _log
               rm _log
               abort
               echo "configure failed: either fix or erase $state_file"
-            elif ! make -j world 2>&1 > _log; then
+            elif ! make -j world > _log 2>&1; then
               cat _log
               rm _log
               abort
               echo "make world failed: either fix or erase $state_file"
-            elif ! make -j bootstrap 2>&1 > _log; then
+            elif ! make -j bootstrap > _log 2>&1; then
               cat _log
               rm _log
               abort
