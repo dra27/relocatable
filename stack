@@ -156,9 +156,7 @@ function rebase
             for file in "${TO_DELETE[@]}"; do
               rm -f "$file"
             done
-            git commit --reuse-message="$sha"
-            git rebase --committer-date-is-author-date HEAD~1
-            COMMITS+=("pick $(git rev-parse --short HEAD)")
+            commit "$sha" 'pick $head' "$instr"
           fi;;
         bootstrap)
           cached="$(git reflog --format='%h %p' | grep " $(git rev-parse --short HEAD)$" | head -n 1 | cut -f1 -d' ')"
@@ -191,9 +189,7 @@ function rebase
                 git add boot/ocamldep
               fi
               git add boot/ocamlc boot/ocamllex
-              git commit --reuse-message="$sha"
-              git rebase --committer-date-is-author-date HEAD~1
-              COMMITS+=("$instr")
+              commit "$sha" "$instr" "$instr"
             fi
           fi;;
         *)
@@ -204,15 +200,27 @@ function rebase
   done
 }
 
+function commit
+{
+  if [[ -z "$(git status --porcelain)" ]]; then
+    echo "Commit $1 skipped for $target (empty)"
+    COMMITS+=("$3")
+  else
+    git commit --reuse-message="$1"
+    git rebase --committer-date-is-author-date HEAD~1 &> /dev/null
+    head="$(git rev-parse --short HEAD)"
+    eval "com=\"$2\""
+    COMMITS+=("$com")
+  fi
+}
+
 aborting=0
 for instr in "${COMMANDS[@]}"; do
   arg="${instr#* }"
   case ${instr%% *} in
     commit)
       git clean -dfX &> /dev/null
-      git commit --reuse-message="${arg#* }"
-      git rebase --committer-date-is-author-date HEAD~1
-      COMMITS+=("${arg% *} $(git rev-parse --short HEAD)")
+      commit "${arg#* }" "${arg% *} \$head" "$arg"
       rebase;;
     branch)
       if ((aborting)); then
