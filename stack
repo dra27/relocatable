@@ -1,0 +1,231 @@
+#!/usr/bin/env bash
+
+state_file="$(dirname $0)/.stack-state"
+dir="$(dirname $0)/ocaml"
+
+if [[ ! -d $dir ]]; then
+  echo "Expect OCaml clone in $dir" >&2
+  exit 1
+fi
+
+cd "$dir"
+
+if ! git rev-parse --verify upstream/trunk &> /dev/null; then
+  echo 'Could not find upstream/trunk' >&2
+  exit 1
+fi
+
+BRANCHES=()
+TARGETS=()
+COMMANDS=()
+
+BRANCHES=(camlheader_ur)
+TARGETS=(5.0.0-alpha1 4.14.0 4.13.1 4.12.1 4.11.2 4.10.2)
+
+# Check the branches all exist and collect the commits to stack
+for branch in "${BRANCHES[@]}"; do
+  if ! git rev-parse --verify $branch &> /dev/null; then
+    if ! git rev-parse --verify origin/$branch &> /dev/null; then
+      echo "Both $branch and origin/$branch do not exist!" >&2
+      exit 1
+    else
+      git branch --track $branch origin/$branch
+    fi
+  fi
+done
+
+fault=0
+for root in "${TARGETS[@]}"; do
+  if ! git rev-parse --verify $root &> /dev/null; then
+    echo "Target $root not found" >&2
+    fault=1
+  fi
+done
+if ((fault)); then
+  exit 1
+fi
+
+COMMITS=()
+WORKING=()
+if [[ ! -e $state_file ]]; then
+  if [[ -n "$(git status --porcelain)" ]]; then
+    echo 'The working tree is not clean' >&2
+    exit 1
+  fi
+
+  git clean -dfX &> /dev/null
+
+  # Calculate the menu. First, determine the initial commit list from the
+  # branches.
+  for branch in "${BRANCHES[@]}"; do
+    while read -r entry; do
+      commit="${entry%% *}"
+      if [[ ${entry#* } = 'Bootstrap' ]]; then
+        # XXX COMBAK Must check that the commit only changes boot/ocamlc and/or boot/ocamllex
+        COMMITS+=("bootstrap $commit")
+      else
+        COMMITS+=("pick $commit")
+      fi
+    done < <(git log upstream/trunk..$branch --format="%h %s" --reverse)
+  done
+
+  # Now generate commands for each target branch
+  for root in "${TARGETS[@]}"; do
+    COMMANDS+=("branch $root")
+  done
+else
+  if [[ -n "$(git ls-files --exclude-standard --others)" ]]; then
+    echo 'Untracked files in the working directory' >&2
+    exit 1
+  elif [[ -n "$(git diff --stat)" ]]; then
+    echo 'Unstaged changes in the working directory' >&2
+    exit 1
+  fi
+
+  # Load the stack state
+  phase=0
+  while read -r line; do
+    case ${line%% *} in
+      pick|bootstrap)
+        if ((phase)); then
+          WORKING+=("$line")
+        else
+          COMMITS+=("$line")
+        fi;;
+      commit)
+        COMMANDS+=("$line")
+        phase=1;;
+      branch)
+        COMMANDS+=("$line");;
+      target)
+        target="$arg";;
+      *)
+        echo "Unrecognised command: $line" >&2
+        phase=2;;
+    esac
+  done < <(cat "$state_file")
+  if [[ $phase -gt 1 ]]; then
+    exit 1
+  fi
+  rm "$state_file"
+fi
+
+function abort
+{
+  echo "Branch: $branch for $target"
+  echo "  $action"
+  for commit in "${COMMITS[@]}"; do
+    echo "$commit"
+  done > "$state_file"
+  echo "target $target" >> "$state_file"
+  echo "commit $instr" >> "$state_file"
+  aborting=1
+}
+
+function rebase
+{
+  for instr in "${WORKING[@]}"; do
+    if ((aborting)); then
+      echo "$instr" >> "$state_file"
+    else
+      sha="${instr#* }"
+      case ${instr% *} in
+        pick)
+          git cherry-pick --no-commit "$sha"
+          git reset -- Changes &> /dev/null
+          git checkout -- Changes &> /dev/null
+          TO_DELETE=()
+          while read -r status; do
+            case ${status:0:2} in
+              DU)
+                git reset -- "${status:3}" &> /dev/null
+                TO_DELETE+=("${status:3}");;
+              UU)
+                if ! grep -q '^<<<<<' "${status:3}" ; then
+                  git add -- "${status:3}"
+                else
+                  git reset -- "${status:3}"
+                fi;;
+            esac
+          done < <(git status --porcelain)
+
+          if [[ -n $(git diff --stat) ]]; then
+            abort
+            echo "Please resolve changes, add to the index and re-run $0"
+          else
+            for file in "${TO_DELETE[@]}"; do
+              rm -f "$file"
+            done
+            git commit --reuse-message="$sha"
+            git rebase --committer-date-is-author-date HEAD~1
+            COMMITS+=("pick $(git rev-parse --short HEAD)")
+          fi;;
+        bootstrap)
+          cached="$(git reflog --format='%h %p' | grep " $(git rev-parse --short HEAD)$" | head -n 1 | cut -f1 -d' ')"
+          if [[ -n $cached ]]; then
+            echo "Re-using previous bootstrap computation from $cached"
+            git merge --ff-only $cached
+            COMMITS+=("$instr")
+          else
+            echo "Bootstrapping..."
+            if ! ./configure --disable-native-compiler --disable-ocamldoc --disable-ocamltest --disable-debugger > _log; then
+              cat _log
+              rm _log
+              abort
+              echo "configure failed: either fix or erase $state_file"
+            elif ! make -j world 2>&1 > _log; then
+              cat _log
+              rm _log
+              abort
+              echo "make world failed: either fix or erase $state_file"
+            elif ! make -j bootstrap 2>&1 > _log; then
+              cat _log
+              rm _log
+              abort
+              echo "make bootstrap failed: either fix or erase $state_file"
+            else
+              rm _log
+              git clean -dfX &> /dev/null
+              # OCaml 4.06 and earlier
+              if [[ -e boot/ocamldep ]]; then
+                git add boot/ocamldep
+              fi
+              git add boot/ocamlc boot/ocamllex
+              git commit --reuse-message="$sha"
+              git rebase --committer-date-is-author-date HEAD~1
+              COMMITS+=("$instr")
+            fi
+          fi;;
+        *)
+          echo "Internal error: unrecognised command $instr" >&2
+          exit 1;;
+      esac
+    fi
+  done
+}
+
+aborting=0
+for instr in "${COMMANDS[@]}"; do
+  arg="${instr#* }"
+  case ${instr%% *} in
+    commit)
+      git clean -dfX &> /dev/null
+      git commit --reuse-message="${arg#* }"
+      git rebase --committer-date-is-author-date HEAD~1
+      COMMITS+=("${arg% *} $(git rev-parse --short HEAD)")
+      rebase;;
+    branch)
+      if ((aborting)); then
+        echo "$instr" >> "$state_file"
+      else
+        target="$arg"
+        git checkout -B "relocatable-${arg%.*}" "$arg" &> /dev/null
+        WORKING=("${COMMITS[@]}")
+        COMMITS=()
+        rebase
+      fi;;
+    *)
+      echo "Internal error: unrecognised command $instr" >&2
+      exit 1;;
+  esac
+done
