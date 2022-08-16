@@ -104,7 +104,7 @@ else
       branch)
         COMMANDS+=("$line");;
       target)
-        target="$arg";;
+        target="${line#* }";;
       *)
         echo "Unrecognised command: $line" >&2
         phase=2;;
