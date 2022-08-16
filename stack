@@ -19,8 +19,8 @@ BRANCHES=()
 TARGETS=()
 COMMANDS=()
 
-BRANCHES=(use-runtime-evil@4.14 camlheader_ur)
-TARGETS=(5.0.0-alpha1 4.14.0 4.13.1 4.12.1 4.11.2 4.10.2)
+BRANCHES=(no-configure@4.11 fcommon@4.08 shebang@4.09 use-runtime-evil@4.14 use-runtime-evil-fixup@fixup camlheader_ur)
+TARGETS=(5.0.0-alpha1 4.14.0 4.13.1 4.12.1 4.11.2 4.10.2 4.09.1 4.08.1)
 
 # Check the branches all exist and collect the commits to stack
 for branch in "${BRANCHES[@]}"; do
