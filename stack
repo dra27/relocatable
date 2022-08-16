@@ -64,15 +64,20 @@ if [[ ! -e $state_file ]]; then
       upstream='trunk'
     fi
     branch="${branch%@*}"
-    while read -r entry; do
-      commit="${entry%% *}"
-      if [[ ${entry#* } = 'Bootstrap' ]]; then
-        # XXX COMBAK Must check that the commit only changes boot/ocamlc and/or boot/ocamllex
-        COMMITS+=("bootstrap $commit")
-      else
-        COMMITS+=("pick $commit")
-      fi
-    done < <(git log upstream/$upstream..$branch --format="%h %s" --reverse)
+    if [[ $upstream = 'fixup' ]]; then
+      commit="$(git log --format=%h -n 1 "$branch")"
+      COMMITS+=("fixup $commit")
+    else
+      while read -r entry; do
+        commit="${entry%% *}"
+        if [[ ${entry#* } = 'Bootstrap' ]]; then
+          # XXX COMBAK Must check that the commit only changes boot/ocamlc and/or boot/ocamllex
+          COMMITS+=("bootstrap $commit")
+        else
+          COMMITS+=("pick $commit")
+        fi
+      done < <(git log upstream/$upstream..$branch --format="%h %s" --reverse)
+    fi
   done
 
   # Now generate commands for each target branch
@@ -92,7 +97,7 @@ else
   phase=0
   while read -r line; do
     case ${line%% *} in
-      pick|bootstrap)
+      pick|bootstrap|fixup)
         if ((phase)); then
           WORKING+=("$line")
         else
@@ -184,13 +189,24 @@ function rebase
       echo "$instr" >> "$state_file"
     else
       sha="${instr#* }"
-      case ${instr% *} in
-        pick)
+      verb="${instr% *}"
+      case $verb in
+        pick|fixup)
           if ! is-backport "$sha" "$target"; then
             COMMITS+=("$instr")
             echo "Skipping $sha as it's older than $target"
           else
-            echo "cherry-pick $sha to $target"
+            if [[ $verb = 'fixup' ]]; then
+              echo "fixup $sha on $target"
+              msg="$(git rev-parse --short HEAD)"
+              amend='--amend'
+              next="$instr"
+            else
+              echo "cherry-pick $sha to $target"
+              msg="$sha"
+              amend=''
+              next='pick $head'
+            fi
             git cherry-pick --no-commit "$sha" >& /dev/null
             git reset -- Changes &> /dev/null
             git checkout -- Changes &> /dev/null
@@ -216,7 +232,7 @@ function rebase
               for file in "${TO_DELETE[@]}"; do
                 rm -f "$file"
               done
-              commit "$sha" 'pick $head' "$instr"
+              commit "$msg" "$next" "$instr" "$amend"
             fi
           fi;;
         bootstrap)
@@ -304,7 +320,17 @@ for instr in "${COMMANDS[@]}"; do
   case ${instr%% *} in
     commit)
       git clean -dfX &> /dev/null
-      commit "${arg#* }" "${arg% *} \$head" "$arg"
+      verb="${arg% *}"
+      if [[ $verb = 'fixup' ]]; then
+        msg="$(git rev-parse --short HEAD)"
+        next="$arg"
+        amend='--amend'
+      else
+        msg="${arg#* }"
+        next="$verb \$head"
+        amend=''
+      fi
+      commit "$msg" "$next" "$arg" "$amend"
       rebase;;
     branch)
       if ((aborting)); then
