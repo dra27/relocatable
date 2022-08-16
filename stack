@@ -128,6 +128,55 @@ function abort
   aborting=1
 }
 
+function merge-base
+{
+  local base="$(git merge-base "$1" "$2")"
+  # There's an error in the branching history for 4.13, possibly caused by PRs
+  # merged shortly after it was branched. The effect is that there are two
+  # "last commit before branching 4.13" commits in the history which causes the
+  # common parent dd7927 to be selected. We manually amend this to 4.13's
+  # merge-base.
+  if [[ $base = 'dd7927e156b7cb2f9cb73d2d54a15a9c81921392' ]]; then
+    base='621753f3eec9de91495a25723de00cef33a9e35a'
+  fi
+  echo "$base"
+}
+
+# Return status 0 only if the commit specified by $1 is based on a branch which
+# is newer than the commit specified by $2 (i.e. cherry-picking $1 onto $2 would
+# be a back-port, not a revert)
+function is-backport
+{
+  commit="$1"
+  target="$2"
+  # The multicore merge history (from #10831) causes issues for `git merge-base`
+  # $pre_10831 is the last commit on trunk before #10831 was merged. If that
+  # commit is _not_ an ancestor of $target, then we use that instead of the tip
+  # of trunk to work out the merge-base, as this avoids the complicated rebase
+  # and merge history in #10831.
+  pre_10831='263a2a429c'
+  if git merge-base --is-ancestor $pre_10831 "$target"; then
+    trunk='upstream/trunk'
+  else
+    trunk=$pre_10831
+  fi
+  target_sha="$(git rev-list -n 1 "$target")"
+  target_mergebase="$(merge-base "$target" $trunk)"
+  mergebase="$(merge-base "$commit" "$target")"
+  if [[ $mergebase = $target_sha ]]; then
+    # Commit is based on target!
+    return
+  elif [[ $mergebase = $target_mergebase ]]; then
+    # The common point between $commit and $target is $target's merge-base with
+    # trunk. That means $commit is newer, as otherwise the common point would
+    # be the merge-base of $commit and trunk.
+    return
+  fi
+
+  # This isn't a back-port
+  return 1
+}
+
 function rebase
 {
   for instr in "${WORKING[@]}"; do
@@ -137,33 +186,38 @@ function rebase
       sha="${instr#* }"
       case ${instr% *} in
         pick)
-          echo "cherry-pick $sha to $target"
-          git cherry-pick --no-commit "$sha" >& /dev/null
-          git reset -- Changes &> /dev/null
-          git checkout -- Changes &> /dev/null
-          TO_DELETE=()
-          while read -r status; do
-            case ${status:0:2} in
-              DU)
-                git reset -- "${status:3}" &> /dev/null
-                TO_DELETE+=("${status:3}");;
-              UU)
-                if ! grep -q '^<<<<<' "${status:3}" ; then
-                  git add -- "${status:3}"
-                else
-                  git reset -- "${status:3}"
-                fi;;
-            esac
-          done < <(git status --porcelain)
-
-          if [[ -n $(git diff --stat) ]]; then
-            abort
-            echo "Please resolve changes, add to the index and re-run $0"
+          if ! is-backport "$sha" "$target"; then
+            COMMITS+=("$instr")
+            echo "Skipping $sha as it's older than $target"
           else
-            for file in "${TO_DELETE[@]}"; do
-              rm -f "$file"
-            done
-            commit "$sha" 'pick $head' "$instr"
+            echo "cherry-pick $sha to $target"
+            git cherry-pick --no-commit "$sha" >& /dev/null
+            git reset -- Changes &> /dev/null
+            git checkout -- Changes &> /dev/null
+            TO_DELETE=()
+            while read -r status; do
+              case ${status:0:2} in
+                DU)
+                  git reset -- "${status:3}" &> /dev/null
+                  TO_DELETE+=("${status:3}");;
+                UU)
+                  if ! grep -q '^<<<<<' "${status:3}" ; then
+                    git add -- "${status:3}"
+                  else
+                    git reset -- "${status:3}"
+                  fi;;
+              esac
+            done < <(git status --porcelain)
+
+            if [[ -n $(git diff --stat) ]]; then
+              abort
+              echo "Please resolve changes, add to the index and re-run $0"
+            else
+              for file in "${TO_DELETE[@]}"; do
+                rm -f "$file"
+              done
+              commit "$sha" 'pick $head' "$instr"
+            fi
           fi;;
         bootstrap)
           echo "Bootstrap $target ($sha)"
