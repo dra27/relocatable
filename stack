@@ -170,7 +170,7 @@ function rebase
           cached="$(git reflog --format='%h %p' | grep " $(git rev-parse --short HEAD)$" | head -n 1 | cut -f1 -d' ')"
           if [[ -n $cached ]]; then
             echo "Re-using previous bootstrap computation from $cached"
-            git merge --ff-only $cached
+            git merge --ff-only $cached &> /dev/null
             COMMITS+=("$instr")
           else
             echo "Bootstrapping..."
@@ -236,7 +236,7 @@ function commit
     echo "Commit $1 skipped for $target (empty)"
     COMMITS+=("$3")
   else
-    git commit --reuse-message="$1"
+    git commit --reuse-message="$1" $4 &>/dev/null
     git rebase --committer-date-is-author-date HEAD~1 &> /dev/null
     head="$(git rev-parse --short HEAD)"
     eval "com=\"$2\""
