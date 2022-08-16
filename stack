@@ -210,6 +210,28 @@ function rebase
 
 function commit
 {
+  reconfigure=0
+  while read -r item; do
+    case $item in
+      configure|configure.ac|aclocal.m4|build-aux/*)
+        reconfigure=1;;
+    esac
+  done < <(git diff --name-only --cached)
+  if ((reconfigure)); then
+    echo "configure.ac has been changed - regenerating configure"
+    if [[ -e tools/autogen ]]; then
+      autogen=tools/autogen
+    else
+      autogen=./autogen
+    fi
+    if docker run --rm -it -v $PWD:/home/opam/ocaml -w /home/opam/ocaml autogen $autogen; then
+      git add configure
+    else
+      abort
+      echo "Regenerating configure failed - please fix and re-run $0"
+      return
+    fi
+  fi
   if [[ -z "$(git status --porcelain)" ]]; then
     echo "Commit $1 skipped for $target (empty)"
     COMMITS+=("$3")
