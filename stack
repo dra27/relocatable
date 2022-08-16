@@ -19,7 +19,17 @@ BRANCHES=()
 TARGETS=()
 COMMANDS=()
 
-BRANCHES=(no-configure@4.11 fcommon@4.08 shebang@4.09 use-runtime-evil@4.14 use-runtime-evil-fixup@fixup camlheader_ur)
+# Back-ports
+#  - Ensure that configure can be patched (#9847; 4.12.0)
+#  - Compatibility with -fno-common (#9180; 4.09.1)
+#  - Original long shebang "fix" (#8622; 4.10.0)
+#  - Hardening of -use-runtime for spaces and symbols (#11112; 5.0.0)
+BRANCHES=(no-configure@4.11 fcommon@4.08 shebang@4.09 use-runtime-evil@4.14 use-runtime-evil-fixup@fixup)
+
+# Branches
+#  - camlheader_ur
+BRANCHES+=(camlheader_ur)
+
 TARGETS=(5.0.0-alpha1 4.14.0 4.13.1 4.12.1 4.11.2 4.10.2 4.09.1 4.08.1)
 
 # Check the branches all exist and collect the commits to stack
