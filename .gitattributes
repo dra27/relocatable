@@ -1,0 +1,2 @@
+# Disable all eol normalisation (but don't treat the files as binary)
+* -text
