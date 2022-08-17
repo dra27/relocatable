@@ -31,7 +31,8 @@ BRANCHES=(no-configure@4.11 fcommon@4.08 ext_exe@4.11 merge-headers@4.08 shebang
 # Branches
 #  - misc-win-fixes
 #  - one-camlheader
-BRANCHES+=(misc-win-fixes one-camlheader)
+#  - target-bindir
+BRANCHES+=(misc-win-fixes one-camlheader target-bindir unified-target-bindir@fixup)
 
 TARGETS=(5.0.0-alpha1 4.14.0 4.13.1 4.12.1 4.11.2 4.10.2 4.09.1 4.08.1)
 
