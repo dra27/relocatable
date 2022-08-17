@@ -358,6 +358,7 @@ for instr in "${COMMANDS[@]}"; do
         next="$verb \$head"
         amend=''
       fi
+      instr="$arg"
       commit "$msg" "$next" "$arg" "$amend"
       rebase;;
     branch)
