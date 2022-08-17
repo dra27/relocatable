@@ -27,8 +27,9 @@ COMMANDS=()
 BRANCHES=(no-configure@4.11 fcommon@4.08 shebang@4.09 use-runtime-evil@4.14 use-runtime-evil-fixup@fixup)
 
 # Branches
+#  - misc-win-fixes
 #  - camlheader_ur
-BRANCHES+=(camlheader_ur)
+BRANCHES+=(misc-win-fixes camlheader_ur)
 
 TARGETS=(5.0.0-alpha1 4.14.0 4.13.1 4.12.1 4.11.2 4.10.2 4.09.1 4.08.1)
 
