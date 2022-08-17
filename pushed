@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+
+dir="$(dirname $0)/ocaml"
+
+if [[ ! -d $dir ]]; then
+  echo "Expect OCaml clone in $dir" >&2
+  exit 1
+fi
+
+cd "$dir"
+
+if ! git rev-parse --verify origin/trunk &> /dev/null; then
+  echo 'Could not find origin/trunk' >&2
+  exit 1
+fi
+
+NO_REMOTE=()
+PUSHED=()
+OUT_OF_SYNC=()
+while read -r branch; do
+  remote=${branch#* }
+  if [[ $remote = $branch ]]; then
+    case $branch in
+      relocatable-5.0|relocatable-4.*) continue;;
+    esac
+    NO_REMOTE+=("$branch")
+  else
+    branch=${branch% *}
+    case $branch,$remote in
+      *,origin/*) ;;
+      *) continue;;
+    esac
+    if [[ $(git rev-parse "$branch") = $(git rev-parse "$remote") ]]; then
+      PUSHED+=("$branch to $remote")
+    else
+      OUT_OF_SYNC+=("$branch with $remote $(git for-each-ref --format='%(push:track)' refs/heads/$branch)")
+    fi
+  fi
+done < <(git branch --format='%(refname:lstrip=2) %(upstream:lstrip=2)')
+
+if [[ ${#PUSHED[@]} -gt 0 ]]; then
+  echo -e "\e[32mUp-to-date\e[0m"
+  for branch in "${PUSHED[@]}"; do
+    echo "  - $branch"
+  done
+fi
+
+if [[ ${#NO_REMOTE[@]} -gt 0 ]]; then
+  echo -e "\e[31mUntracked branches\e[0m"
+  for branch in "${NO_REMOTE[@]}"; do
+    echo "  - $branch"
+  done
+fi
+
+if [[ ${#OUT_OF_SYNC[@]} -gt 0 ]]; then
+  echo -e "\e[33mOut-of-sync with origin\e[0m"
+  for branch in "${OUT_OF_SYNC[@]}"; do
+    echo "  - $branch"
+  done
+fi
