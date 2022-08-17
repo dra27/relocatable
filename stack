@@ -276,9 +276,9 @@ function rebase
               git clean -dfX &> /dev/null
               # OCaml 4.06 and earlier
               if [[ -e boot/ocamldep ]]; then
-                git add boot/ocamldep
+                git add -- boot/ocamldep
               fi
-              git add boot/ocamlc boot/ocamllex
+              git add -- boot/ocamlc boot/ocamllex
               commit "$sha" "$instr" "$instr"
             fi
           fi;;
@@ -307,7 +307,7 @@ function commit
       autogen=./autogen
     fi
     if docker run --rm -it -v $PWD:/home/opam/ocaml -w /home/opam/ocaml autogen $autogen; then
-      git add configure
+      git add -- configure
     else
       abort
       echo "Regenerating configure failed - please fix and re-run $0"
