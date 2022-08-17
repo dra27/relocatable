@@ -24,12 +24,14 @@ COMMANDS=()
 #  - Compatibility with -fno-common (#9180; 4.09.1)
 #  - Original long shebang "fix" (#8622; 4.10.0)
 #  - Hardening of -use-runtime for spaces and symbols (#11112; 5.0.0)
-BRANCHES=(no-configure@4.11 fcommon@4.08 shebang@4.09 use-runtime-evil@4.14 use-runtime-evil-fixup@fixup)
+#  - Fix parallel generation of header programs (#2267 + #8626; 4.09.0)
+#  - Expose Config.ext_exe (from #9652; 4.12.0)
+BRANCHES=(no-configure@4.11 fcommon@4.08 ext_exe@4.11 merge-headers@4.08 shebang@4.09 use-runtime-evil@4.14 use-runtime-evil-fixup@fixup)
 
 # Branches
 #  - misc-win-fixes
-#  - camlheader_ur
-BRANCHES+=(misc-win-fixes camlheader_ur)
+#  - one-camlheader
+BRANCHES+=(misc-win-fixes one-camlheader)
 
 TARGETS=(5.0.0-alpha1 4.14.0 4.13.1 4.12.1 4.11.2 4.10.2 4.09.1 4.08.1)
 
