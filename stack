@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-state_file="$(dirname $0)/.stack-state"
+state_file="$(realpath $(dirname $0))/.stack-state"
 dir="$(dirname $0)/ocaml"
 
 if [[ ! -d $dir ]]; then
