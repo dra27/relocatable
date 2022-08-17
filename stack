@@ -230,13 +230,15 @@ function rebase
                   if ! grep -q '^<<<<<' "${status:3}" ; then
                     git add -- "${status:3}"
                   else
-                    git reset -- "${status:3}"
+                    git reset -- "${status:3}" &>/dev/null
                   fi;;
               esac
             done < <(git status --porcelain)
 
             if [[ -n $(git diff --stat) ]]; then
               abort
+              git status
+              echo
               echo "Please resolve changes, add to the index and re-run $0"
             else
               for file in "${TO_DELETE[@]}"; do
