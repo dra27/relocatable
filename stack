@@ -318,7 +318,14 @@ function commit
     echo "Commit $1 skipped for $target (empty)"
     COMMITS+=("$3")
   else
-    git commit --reuse-message="$1" $4 &>/dev/null
+    if ! git commit --reuse-message="$1" $4 &> _log; then
+      cat _log
+      rm _log
+      abort
+      echo "Commit failed - please fix and re-run $0"
+      return
+    fi
+    rm -f _log
     git rebase --committer-date-is-author-date HEAD~1 &> /dev/null
     head="$(git rev-parse --short HEAD)"
     eval "com=\"$2\""
