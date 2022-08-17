@@ -204,15 +204,15 @@ function rebase
         pick|fixup)
           if ! is-backport "$sha" "$target"; then
             COMMITS+=("$instr")
-            echo "Skipping $sha as it's older than $target"
+            echo "Skipping $sha as it's older than $target ($(git log -n 1 --format=%s $sha))"
           else
             if [[ $verb = 'fixup' ]]; then
-              echo "fixup $sha on $target"
+              echo "fixup $sha on $target ($(git log -n 1 --format=%s $sha))"
               msg="$(git rev-parse --short HEAD)"
               amend='--amend'
               next="$instr"
             else
-              echo "cherry-pick $sha to $target"
+              echo "cherry-pick $sha to $target ($(git log -n 1 --format=%s $sha))"
               msg="$sha"
               amend=''
               next='pick $head'
