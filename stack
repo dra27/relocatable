@@ -220,31 +220,33 @@ function rebase
             git cherry-pick --no-commit "$sha" >& /dev/null
             git reset -- Changes &> /dev/null
             git checkout -- Changes &> /dev/null
-            TO_DELETE=()
-            while read -r status; do
-              case ${status:0:2} in
-                DU)
-                  git reset -- "${status:3}" &> /dev/null
-                  TO_DELETE+=("${status:3}");;
-                UU)
-                  if ! grep -q '^<<<<<' "${status:3}" ; then
-                    git add -- "${status:3}"
-                  else
-                    git reset -- "${status:3}" &>/dev/null
-                  fi;;
-              esac
-            done < <(git status --porcelain)
+            if reconfigure; then
+              TO_DELETE=()
+              while read -r status; do
+                case ${status:0:2} in
+                  DU)
+                    git reset -- "${status:3}" &> /dev/null
+                    TO_DELETE+=("${status:3}");;
+                  UU)
+                    if ! grep -q '^<<<<<' "${status:3}" ; then
+                      git add -- "${status:3}"
+                    else
+                      git reset -- "${status:3}" &>/dev/null
+                    fi;;
+                esac
+              done < <(git status --porcelain)
 
-            if [[ -n $(git diff --stat) ]]; then
-              abort
-              git status
-              echo
-              echo "Please resolve changes, add to the index and re-run $0"
-            else
-              for file in "${TO_DELETE[@]}"; do
-                rm -f "$file"
-              done
-              commit "$msg" "$next" "$instr" "$amend"
+              if [[ -n $(git diff --stat) ]]; then
+                abort
+                git status
+                echo
+                echo "Please resolve changes, add to the index and re-run $0"
+              else
+                for file in "${TO_DELETE[@]}"; do
+                  rm -f "$file"
+                done
+                commit "$msg" "$next" "$instr" "$amend"
+              fi
             fi
           fi;;
         bootstrap)
@@ -290,7 +292,7 @@ function rebase
   done
 }
 
-function commit
+function reconfigure
 {
   reconfigure=0
   while read -r item; do
@@ -311,25 +313,31 @@ function commit
     else
       abort
       echo "Regenerating configure failed - please fix and re-run $0"
-      return
+      return 1
     fi
   fi
-  if [[ -z "$(git status --porcelain)" ]]; then
-    echo "Commit $1 skipped for $target (empty)"
-    COMMITS+=("$3")
-  else
-    if ! git commit --reuse-message="$1" $4 &> _log; then
-      cat _log
-      rm _log
-      abort
-      echo "Commit failed - please fix and re-run $0"
-      return
+}
+
+function commit
+{
+  if reconfigure; then
+    if [[ -z "$(git status --porcelain)" ]]; then
+      echo "Commit $1 skipped for $target (empty)"
+      COMMITS+=("$3")
+    else
+      if ! git commit --reuse-message="$1" $4 &> _log; then
+        cat _log
+        rm _log
+        abort
+        echo "Commit failed - please fix and re-run $0"
+        return
+      fi
+      rm -f _log
+      git rebase --committer-date-is-author-date HEAD~1 &> /dev/null
+      head="$(git rev-parse --short HEAD)"
+      eval "com=\"$2\""
+      COMMITS+=("$com")
     fi
-    rm -f _log
-    git rebase --committer-date-is-author-date HEAD~1 &> /dev/null
-    head="$(git rev-parse --short HEAD)"
-    eval "com=\"$2\""
-    COMMITS+=("$com")
   fi
 }
 
