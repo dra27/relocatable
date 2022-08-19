@@ -21,7 +21,7 @@ while read -r branch; do
   remote=${branch#* }
   if [[ $remote = $branch ]]; then
     case $branch in
-      relocatable-5.0|relocatable-4.*) continue;;
+      backport-5.0|backport-4.*) continue;;
     esac
     NO_REMOTE+=("$branch")
   else

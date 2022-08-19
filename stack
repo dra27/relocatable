@@ -374,7 +374,7 @@ for instr in "${COMMANDS[@]}"; do
       if ((aborting)); then
         echo "$instr" >> "$state_file"
       else
-        target_branch="relocatable-${arg%.*}"
+        target_branch="backport-${arg%.*}"
         echo "Creating branch $target_branch"
         target="$arg"
         git checkout -B "$target_branch" "$arg" &> /dev/null
