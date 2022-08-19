@@ -387,3 +387,8 @@ for instr in "${COMMANDS[@]}"; do
       exit 1;;
   esac
 done
+
+cd ..
+if ((!aborting)); then
+  git submodule update
+fi
