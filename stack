@@ -26,13 +26,19 @@ COMMANDS=()
 #  - Hardening of -use-runtime for spaces and symbols (#11112; 5.0.0)
 #  - Fix parallel generation of header programs (#2267 + #8626; 4.09.0)
 #  - Expose Config.ext_exe (from #9652; 4.12.0)
-BRANCHES=(no-configure@4.11 fcommon@4.08 ext_exe@4.11 merge-headers@4.08 shebang@4.09 use-runtime-evil@4.14 use-runtime-evil-fixup@fixup)
+#  - Caml_inline macro (from #1176; 4.11.0)
+#  - _T / T macro (#2075; 4.09.0)
+#  - sigaltstack / glibc 2.34 (#10266 and #10726; 4.13.0 and 4.14.0)
+BRANCHES=(no-configure@4.11 fcommon@4.08 ext_exe@4.11 merge-headers@4.08 shebang@4.09 c89_headers@4.10 rename_T_macro@4.08 use-runtime-evil@4.14 use-runtime-evil-fixup@fixup sigaltstack)
 
 # Branches
 #  - misc-win-fixes
 #  - one-camlheader
 #  - target-bindir
-BRANCHES+=(misc-win-fixes one-camlheader target-bindir unified-target-bindir@fixup)
+#  - ld.conf-CRLF
+#  - ld.conf-search
+#  - ld.conf-relative
+BRANCHES+=(misc-win-fixes one-camlheader target-bindir unified-target-bindir@fixup ld.conf-CRLF ld.conf-search ld.conf-relative unified-ld.conf-relative@4.14)
 
 TARGETS=(5.0.0-alpha1 4.14.0 4.13.1 4.12.1 4.11.2 4.10.2 4.09.1 4.08.1)
 
