@@ -262,7 +262,7 @@ function rebase
         bootstrap)
           echo "Bootstrap $target ($sha)"
           cached="$(git reflog --format='%h %p' | grep " $(git rev-parse --short HEAD)$" | head -n 1 | cut -f1 -d' ')"
-          if [[ -n $cached ]]; then
+          if [[ -n $cached ]] && git diff-tree --no-commit-id --name-only -r "$cached" | grep -Fq 'boot/ocaml'; then
             echo "Re-using previous bootstrap computation from $cached"
             git merge --ff-only $cached &> /dev/null
             COMMITS+=("$instr")
