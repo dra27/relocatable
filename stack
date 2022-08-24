@@ -20,6 +20,11 @@ TARGETS=()
 COMMANDS=()
 
 # Back-ports
+# NB These back-ports have been selected to ease the back-porting of the main
+# PRs. Some of the back-ports will want tweaking after the PRs are finalised.
+# For example, back-porting #1941 and #8992 makes the -set-global-string portion
+# of enable-relative rebase more easily, but the better back-port would be to
+# add the argument using the pre-4.10 mechanisms.
 #  - Ensure that configure can be patched (#9847; 4.12.0)
 #  - Compatibility with -fno-common (#9180; 4.09.1)
 #  - Original long shebang "fix" (#8622; 4.10.0)
@@ -29,7 +34,14 @@ COMMANDS=()
 #  - Caml_inline macro (from #1176; 4.11.0)
 #  - _T / T macro (#2075; 4.09.0)
 #  - sigaltstack / glibc 2.34 (#10266 and #10726; 4.13.0 and 4.14.0)
-BRANCHES=(no-configure@4.11 fcommon@4.08 ext_exe@4.11 merge-headers@4.08 shebang@4.09 c89_headers@4.10 rename_T_macro@4.08 use-runtime-evil@4.14 use-runtime-evil-fixup@fixup sigaltstack)
+#  - ocamlrun -config (#9284; 4.13.0)
+#  - Eliminate tools/ocamlmklibconfig.ml (#10204; 4.13.0)
+#  - Add HAS_REALPATH to s.h (from #10047; 4.13.0)
+#  - Add runtime/build_config.h (from #10451; 4.13.0)
+#  - Simplification of ocamlcp/ocamloptp processing (#1941; 4.09.0)
+#  - Share argument implementations (from #8992; 4.10.0)
+#  - SUBST_STRING macro in utils/Makefile (from #8650; 4.10.0)
+BRANCHES=(no-configure@4.11 fcommon@4.08 ext_exe@4.11 merge-headers@4.08 shebang@4.09 c89_headers@4.10 rename_T_macro@4.08 use-runtime-evil@4.14 use-runtime-evil-fixup@fixup sigaltstack ocamlrun-config@4.12 ocamlmklibconfig-cleanup@4.12 unix-realpath@4.12 build_config@4.12 build_config-4.11@fixup shared_args-4.08@4.08 shared_args-4.09@4.09 makefile-tweaks@4.09)
 
 # Branches
 #  - misc-win-fixes
@@ -38,7 +50,9 @@ BRANCHES=(no-configure@4.11 fcommon@4.08 ext_exe@4.11 merge-headers@4.08 shebang
 #  - ld.conf-CRLF
 #  - ld.conf-search
 #  - ld.conf-relative
-BRANCHES+=(misc-win-fixes one-camlheader target-bindir unified-target-bindir@fixup ld.conf-CRLF ld.conf-search ld.conf-relative unified-ld.conf-relative@4.14)
+#  - compiled-primitives
+#  - enable-relative
+BRANCHES+=(misc-win-fixes one-camlheader target-bindir unified-target-bindir@fixup ld.conf-CRLF ld.conf-search ld.conf-relative unified-ld.conf-relative@4.14 compiled-primitives enable-relative unified-enable-relative@fixup unified-enable-relative-4.x@fixup unified-enable-relative-4.11@fixup cmmgen-4.09@fixup cmmgen-4.08@fixup)
 
 TARGETS=(5.0.0-alpha1 4.14.0 4.13.1 4.12.1 4.11.2 4.10.2 4.09.1 4.08.1)
 
