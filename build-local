@@ -1,0 +1,49 @@
+#!/bin/bash
+
+dir="$(dirname $0)/ocaml"
+
+if [[ ! -d $dir ]]; then
+  echo "Expect OCaml clone in $dir" >&2
+  exit 1
+fi
+
+cd "$dir"
+
+prefix="$(realpath $(dirname "$0"))"/local
+
+if [[ -d $prefix ]]; then
+  echo "$prefix exists - please remove before running" >&2
+  exit 1
+fi
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo 'The working tree is not clean' >&2
+  exit 1
+fi
+
+function failed
+{
+  echo
+  cat _log
+  rm _log
+  echo "$1: $2 failed!" >&2
+  exit 1
+}
+
+for v in 5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08; do
+  git clean -dfX &> /dev/null
+  git checkout backport-$v
+  printf "Building OCaml $v... "
+  if ! ./configure --prefix "$prefix/ocaml-$v" --enable-relative > _log 2>&1; then
+    failed "$v" 'configure'
+  fi
+  if ! make -j world.opt > _log 2>&1; then
+    failed "$v" 'build'
+  fi
+  if ! make install > _log 2>&1; then
+    failed "$v" 'install'
+  fi
+  echo "done"
+done
+
+git submodule update
