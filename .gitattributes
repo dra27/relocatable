@@ -1,2 +1,6 @@
 # Default behaviour, for if core.autocrlf isn't set
 * text=auto
+
+build-local text eol=lf
+pushed text eol=lf
+stack text eol=lf
