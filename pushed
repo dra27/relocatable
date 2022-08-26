@@ -27,6 +27,7 @@ while read -r branch; do
   else
     branch=${branch% *}
     case $branch,$remote in
+      backport-5.0,*|backport-4.*,*) continue;;
       *,origin/*) ;;
       *) continue;;
     esac
