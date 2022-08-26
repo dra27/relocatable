@@ -1,6 +1,8 @@
 #!/bin/bash
 
+script="$(realpath "$0")"
 dir="$(dirname $0)/ocaml"
+prefix="$(realpath $(dirname "$0"))"/local
 
 if [[ ! -d $dir ]]; then
   echo "Expect OCaml clone in $dir" >&2
@@ -9,7 +11,39 @@ fi
 
 cd "$dir"
 
-prefix="$(realpath $(dirname "$0"))"/local
+function failed
+{
+  echo
+  cat _log
+  rm _log
+  echo "$1: $2 failed!"
+  exit 1
+}
+
+function build
+{
+  printf "Building OCaml $1... "
+  if ! ./configure --prefix "$prefix/ocaml-$1" --enable-relative > _log 2>&1; then
+    failed "$1" 'configure'
+  fi
+  if ! make -j world.opt > _log 2>&1; then
+    failed "$1" 'build'
+  fi
+  if ! make install > _log 2>&1; then
+    failed "$1" 'install'
+  fi
+  echo "done"
+}
+
+if [[ $# -eq 1 ]]; then
+  if [[ ! -d "../builds/build-$1" ]]; then
+    echo "$(realpath ../builds/build-$1) not found?!" >&2
+    exit 1
+  fi
+  cd ../builds/build-$1
+  build "$1"
+  exit 0
+fi
 
 if [[ -d $prefix ]]; then
   echo "$prefix exists - please remove before running" >&2
@@ -21,29 +55,24 @@ if [[ -n "$(git status --porcelain)" ]]; then
   exit 1
 fi
 
-function failed
-{
-  echo
-  cat _log
-  rm _log
-  echo "$1: $2 failed!" >&2
-  exit 1
-}
+BACKPORTS=(5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08)
 
-for v in 5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08; do
-  git clean -dfX &> /dev/null
-  git checkout backport-$v
-  printf "Building OCaml $v... "
-  if ! ./configure --prefix "$prefix/ocaml-$v" --enable-relative > _log 2>&1; then
-    failed "$v" 'configure'
+problem=0
+for v in "${BACKPORTS[@]}"; do
+  if [[ ! -d ../builds/build-$v ]]; then
+    git worktree add ../builds/build-$v backport-$v
+  else
+    if [[ -n "$(git -C ../builds/build-$v status --porcelain)" ]]; then
+      echo "Working tree $(realpath ../builds/build-$v) is not clean" >&2
+      problem=1
+    else
+      git -C ../builds/build-$v clean -dfx &> /dev/null
+       git -C ../builds/build-$v checkout backport-$v &> /dev/null
+    fi
   fi
-  if ! make -j world.opt > _log 2>&1; then
-    failed "$v" 'build'
-  fi
-  if ! make install > _log 2>&1; then
-    failed "$v" 'install'
-  fi
-  echo "done"
 done
+if ((problem)); then
+  exit 1
+fi
 
-git submodule update
+printf "%s\n" "${BACKPORTS[@]}" | parallel "$script" {}
