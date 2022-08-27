@@ -32,6 +32,7 @@ function build
   if ! make install > _log 2>&1; then
     failed "$1" 'install'
   fi
+  rm -f _log
   echo "done"
 }
 
