@@ -68,7 +68,7 @@ for v in "${BACKPORTS[@]}"; do
       problem=1
     else
       git -C ../builds/build-$v clean -dfx &> /dev/null
-       git -C ../builds/build-$v checkout backport-$v &> /dev/null
+       git -C ../builds/build-$v checkout --detach backport-$v &> /dev/null
     fi
   fi
 done
