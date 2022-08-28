@@ -143,11 +143,11 @@ static void parse_ld_confs(void)
   /* Add $CAMLLIB if set and not equal to $OCAMLLIB */
   env_value = caml_secure_getenv(_T("CAMLLIB"));
   if (env_value != NULL && strlen_os(env_value) > 0
-      && !strcmp_os(env_value, locations[0]))
+      && strcmp_os(env_value, locations[0]))
     locations[file_count++] = caml_stat_strdup_os(env_value);
   /* Add OCAML_STDLIB_DIR if not equal to either */
-  if (!strcmp(OCAML_STDLIB_DIR, locations[0])
-      || !strcmp(OCAML_STDLIB_DIR, locations[1]))
+  if (strcmp_os(OCAML_STDLIB_DIR, locations[0])
+      || strcmp_os(OCAML_STDLIB_DIR, locations[1]))
     locations[file_count++] = caml_stat_strdup_os(OCAML_STDLIB_DIR);
 
   /* Load and parse all the ld.conf files */
