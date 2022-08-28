@@ -53,7 +53,6 @@ config.ml: config.mlp $(ROOTDIR)/Makefile.config Makefile
 	    $(call SUBST,BYTECCLIBS) \
 	    $(call SUBST,CC) \
 	    $(call SUBST,CCOMPTYPE) \
-	    $(call SUBST,CC_PROFILE) \
 	    $(call SUBST,OUTPUTOBJ) \
 	    $(call SUBST,EXT_ASM) \
 	    $(call SUBST,EXT_DLL) \
@@ -65,7 +64,8 @@ config.ml: config.mlp $(ROOTDIR)/Makefile.config Makefile
 	    $(call SUBST,FLEXLINK_FLAGS) \
 	    $(call SUBST_QUOTE,FLEXDLL_DIR) \
 	    $(call SUBST,HOST) \
-	    $(call SUBST_STRING,TARGET_BINDIR) \
+	    $(call SUBST,BINDIR) \
+	    $(call SUBST,TARGET_BINDIR) \
 	    $(call SUBST,LIBDIR) \
 	    $(call SUBST,LIBUNWIND_AVAILABLE) \
 	    $(call SUBST,LIBUNWIND_LINK_FLAGS) \
@@ -80,9 +80,10 @@ config.ml: config.mlp $(ROOTDIR)/Makefile.config Makefile
 	    $(call SUBST,OCAMLOPT_CFLAGS) \
 	    $(call SUBST,OCAMLOPT_CPPFLAGS) \
 	    $(call SUBST,PACKLD) \
-	    $(call SUBST,PROFILING) \
 	    $(call SUBST,PROFINFO_WIDTH) \
 	    $(call SUBST,RANLIBCMD) \
+	    $(call SUBST,RPATH) \
+	    $(call SUBST,MKSHAREDLIBRPATH) \
 	    $(call SUBST,FORCE_SAFE_STRING) \
 	    $(call SUBST,DEFAULT_SAFE_STRING) \
 	    $(call SUBST,WINDOWS_UNICODE) \

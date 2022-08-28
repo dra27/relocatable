@@ -147,6 +147,7 @@ menhir-bench.bash typo.missing-header typo.utf8
 /tools/ci/appveyor/appveyor_build.cmd text eol=crlf
 
 configure text eol=lf
+aclocal.m4 typo.tab
 configure.ac text eol=lf
 autogen text eol=lf
 build-aux/compile text eol=lf

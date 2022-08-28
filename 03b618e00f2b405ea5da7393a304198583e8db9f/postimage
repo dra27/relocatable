@@ -99,7 +99,7 @@ static void st_thread_join(st_thread_id thr)
 
 /* Scheduling hints */
 
-static INLINE void st_thread_yield(void)
+Caml_inline void st_thread_yield(void)
 {
   Sleep(0);
 }
