@@ -109,7 +109,7 @@ BRANCHES+=(no-configure@4.11)
 # - Add runtime/build_config.h (from #10451; 4.13.0)
 # - Simplification of ocamlcp/ocamloptp processing (#1941; 4.09.0)
 # - Share argument implementations (from #8992; 4.10.0)
-BRANCHES+=(ext_exe@4.11 shebang@4.09 c89_headers@4.10 rename_T_macro@4.08 use-runtime-evil@4.14 use-runtime-evil-fixup@fixup ocamlrun-config@4.12 ocamlmklibconfig-cleanup@4.12 unix-realpath@4.12 build_config@4.12 build_config-4.11@fixup shared_args-4.08@4.08 shared_args-4.09@4.09)
+BRANCHES+=(ext_exe@4.11 shebang@4.09 c89_headers@4.10 rename_T_macro@4.08 use-runtime-evil@4.14 use-runtime-evil-fixup@fixup ocamlrun-config@4.12 ocamlmklibconfig-cleanup@4.12 unix-realpath@4.12 build_config@4.12 build_config-4.11@fixup ocamlc-dedup3@4.08 shared_args-4.09@4.09 shared_args-4.08@4.08)
 
 # Branches
 #  - misc-win-fixes
