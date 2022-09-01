@@ -178,17 +178,32 @@ if [[ ! -e $state_file ]]; then
       upstream="${upstream%@fixup}"
       cmd="$branch"
       count=-1
-      while read -r commit; do
+      while read -r entry; do
+        commit="${entry%% *}"
+        if [[ $count -eq -1 && ${entry#* } = 'Basis' ]]; then
+          continue
+        fi
         cmd="$cmd $commit"
         ((count++))
-      done < <(git log upstream/$upstream..$branch --format="%h" --reverse)
+      done < <(git log upstream/$upstream..$branch --format="%h %s" --reverse)
       COMMITS+=("adjust $count $cmd")
     else
       while read -r entry; do
         commit="${entry%% *}"
-        if [[ ${entry#* } = 'Bootstrap' ]]; then
-          # XXX COMBAK Must check that the commit only changes boot/ocamlc and/or boot/ocamllex
-          COMMITS+=("bootstrap $commit")
+        bootstrap=0
+        diffs=0
+        while read -r path; do
+          case "$path" in
+            boot/ocaml*) bootstrap=1;;
+            *) diffs=1;;
+          esac
+        done < <(git diff-tree --no-commit-id --name-only -r "$commit")
+        if [[ $bootstrap -eq 1 ]]; then
+          if [[ $diffs -eq 0 ]]; then
+            COMMITS+=("bootstrap $commit")
+          else
+            COMMITS+=("coreboot $commit")
+          fi
         else
           COMMITS+=("pick $commit")
         fi
@@ -213,7 +228,7 @@ else
   phase=0
   while read -r line; do
     case ${line%% *} in
-      pick|bootstrap|fixup|adjust)
+      pick|bootstrap|coreboot|fixup|adjust|next)
         if ((phase)); then
           WORKING+=("$line")
         else
@@ -306,92 +321,30 @@ function rebase
     sha="${instr#* }"
     verb="${instr%% *}"
     case $verb in
-      adjust)
-        # INSTR[0] = adjust; INSTR[1] = count; INSTR[2] = description; INSTR[@]:3 = commits
-        INSTR=($instr)
-        if ! is-backport "${INSTR[3]}" "$target"; then
-          COMMITS+=("$instr")
-          echo "Skipping ${INSTR[2]} as it's older than $target"
-        else
-          if [[ ${INSTR[1]} -eq 0 ]]; then
-            POPPED=()
-          else
-            POPPED=("${COMMITS[@]: -${INSTR[1]}}")
-            COMMITS=("${COMMITS[@]:0:$((${#COMMITS[@]} - ${INSTR[1]}))}")
-            git reset --hard HEAD~${INSTR[1]} &> /dev/null
-          fi
-          INSTR=("${INSTR[@]:3}")
-          ADDITIONS=()
-          while [[ ${#INSTR[@]} -gt 0 ]]; do
-            sha="${INSTR[0]}"
-            INSTR=("${INSTR[@]:1}")
-            ADDITIONS+=("fixup $sha")
-            if [[ ${#POPPED[@]} -gt 0 ]]; then
-              ADDITIONS+=("${POPPED[0]}")
-              POPPED=("${POPPED[@]:1}")
-            fi
-          done
-          WORKING=("${ADDITIONS[@]}" "${POPPED[@]}" "${WORKING[@]}")
-        fi;;
+      next)
+        COMMITS+=("$sha");;
       pick|fixup)
-        if ! is-backport "$sha" "$target"; then
-          COMMITS+=("$instr")
-          echo "Skipping $sha as it's older than $target ($(git log -n 1 --format=%s $sha))"
-          if [[ $verb = 'fixup' ]]; then
-            echo "Should not be seeing a skipped commit for fixup?" >&2
-            exit 1
-          fi
+        if [[ $verb = 'fixup' ]]; then
+          echo "fixup $sha on $target ($(git log -n 1 --format=%s $sha))"
+          msg="$(git rev-parse --short HEAD)"
+          amend='--amend'
+          next=''
         else
-          if [[ $verb = 'fixup' ]]; then
-            echo "fixup $sha on $target ($(git log -n 1 --format=%s $sha))"
-            msg="$(git rev-parse --short HEAD)"
-            amend='--amend'
-            next=''
-          else
-            echo "cherry-pick $sha to $target ($(git log -n 1 --format=%s $sha))"
-            msg="$sha"
-            amend=''
-            next='pick $head'
-          fi
-          git cherry-pick --no-commit "$sha" >& /dev/null
-          git reset -- Changes &> /dev/null
-          git checkout -- Changes &> /dev/null
-          if reconfigure; then
-            TO_DELETE=()
-            while read -r status; do
-              case ${status:0:2} in
-                DU)
-                  git reset -- "${status:3}" &> /dev/null
-                  TO_DELETE+=("${status:3}");;
-                UU)
-                  if ! grep -q '^<<<<<' "${status:3}" ; then
-                    git add -- "${status:3}"
-                  else
-                    git reset -- "${status:3}" &>/dev/null
-                  fi;;
-              esac
-            done < <(git status --porcelain)
-
-            if [[ -n $(git diff --stat) ]]; then
-              abort
-              git status
-              echo
-              echo "Please resolve changes, add to the index and re-run $0"
-            else
-              for file in "${TO_DELETE[@]}"; do
-                rm -f "$file"
-              done
-              commit "$msg" "$next" "$instr" "$amend"
-            fi
-          fi
+          echo "cherry-pick $sha to $target ($(git log -n 1 --format=%s $sha))"
+          msg="$sha"
+          amend=''
+          next='pick $head'
+        fi
+        if cherry-pick "$sha"; then
+          commit "$msg" "$next" "$instr" "$amend"
         fi;;
       bootstrap)
-        echo "Bootstrap $target ($sha)"
+        echo "Bootstrap $target ($sha) on $(git rev-parse --short HEAD)"
         cached="$(git reflog --format='%h %p' | grep " $(git rev-parse --short HEAD)$" | head -n 1 | cut -f1 -d' ')"
         if [[ -n $cached ]] && git diff-tree --no-commit-id --name-only -r "$cached" | grep -Fq 'boot/ocaml'; then
           echo "Re-using previous bootstrap computation from $cached"
           git merge --ff-only $cached &> /dev/null
-          COMMITS+=("$instr")
+          COMMITS+=("bootstrap $cached")
         else
           echo "Bootstrapping..."
           if ! ./configure --disable-native-compiler --disable-ocamldoc --disable-ocamltest --disable-debugger > _log 2>&1; then
@@ -399,16 +352,26 @@ function rebase
             rm _log
             abort
             echo "configure failed: either fix or erase $state_file"
-          elif ! make -j world > _log 2>&1; then
+          elif ! make -j coldstart > _log 2>&1; then
             cat _log
             rm _log
             abort
-            echo "make world failed: either fix or erase $state_file"
+            echo "make coldstart failed: either fix or erase $state_file"
+            echo 'Do _not_ bootstrap'
+          elif ! make -j coreall > _log 2>&1; then
+            cat _log
+            rm _log
+            abort
+            echo "make coreall failed: either fix or erase $state_file"
+            echo 'Do _not_ bootstrap'
           elif ! make -j bootstrap > _log 2>&1; then
             cat _log
             rm _log
             abort
+            git reset -- boot/ocaml* &> /dev/null
+            git checkout -- boot/ocaml* &> /dev/null
             echo "make bootstrap failed: either fix or erase $state_file"
+            echo 'Do _not_ bootstrap'
           else
             rm _log
             git clean -dfX &> /dev/null
@@ -417,7 +380,28 @@ function rebase
               git add -- boot/ocamldep
             fi
             git add -- boot/ocamlc boot/ocamllex
-            commit "$sha" "$instr" "$instr"
+            commit "$sha" 'bootstrap $head' "$instr"
+          fi
+        fi;;
+      coreboot)
+        echo "Coreboot $target ($sha) on $(git rev-parse --short HEAD)"
+        if cherry-pick "$sha" 'boot/ocaml*' 'Do _not_ bootstrap'; then
+          next="${WORKING[0]}"
+          if [[ ${next%% *} = 'fixup' ]]; then
+            echo "Skipping coreboot - next command is a fixup"
+            if ! git commit --reuse-message="$sha" &> _log; then
+              cat _log
+              rm _log
+              abort
+              echo "Commit failed - please fix and re-run $0"
+              echo 'Do _not_ bootstrap'
+            else
+              rm _log
+              git rebase --committer-date-is-author-date HEAD~1 &> /dev/null
+              COMMITS+=("coreboot $(git rev-parse --short HEAD)")
+            fi
+          else
+            coreboot "$sha"
           fi
         fi;;
       *)
@@ -459,34 +443,180 @@ function reconfigure
   fi
 }
 
-function commit
+function cherry-pick
 {
+  git cherry-pick --no-commit "$1" >& /dev/null
+  git reset -- Changes $2 &> /dev/null
+  git checkout -- Changes $2 &> /dev/null
   if reconfigure; then
-    if [[ -z "$(git status --porcelain)" ]]; then
-      echo "Commit $1 skipped for $target (empty)"
-      # Don't put an empty fixup back onto the list
-      if [[ -n $2 ]]; then
-        COMMITS+=("$3")
+    while read -r status; do
+      case ${status:0:2} in
+        DU)
+          git reset -- "${status:3}" &> /dev/null
+          TO_DELETE+=("${status:3}");;
+        UU)
+          if ! grep -q '^<<<<<' "${status:3}" ; then
+            git add -- "${status:3}"
+          else
+            git reset -- "${status:3}" &>/dev/null
+          fi;;
+      esac
+    done < <(git status --porcelain)
+
+    if [[ -n $(git diff --stat) ]]; then
+      abort
+      git status
+      echo
+      echo "Please resolve changes, add to the index and re-run $0"
+      if [[ -n $3 ]]; then
+        echo "$3"
       fi
+      return 1
     else
-      if ! git commit --reuse-message="$1" $4 &> _log; then
+      return 0
+    fi
+  else
+    return 1
+  fi
+}
+
+function coreboot
+{
+  head_sha="$(git rev-parse --short HEAD)"
+  # Check the cache
+  if ! git commit --reuse-message="$1" &> _log; then
+    cat _log
+    rm _log
+    abort
+    echo "Commit failed - please fix and re-run $0"
+  else
+    rm _log
+    git rebase --committer-date-is-author-date HEAD~1 &> /dev/null
+    code_sha="$(git rev-parse --short HEAD)"
+    cached="$(git reflog --format='%h %p' | grep " ${code_sha}\$" | head -n 1 | cut -f1 -d' ')"
+    if [[ -n $cached ]] && git diff-tree --no-commit-id --name-only -r "$cached" | grep -Fq 'boot/ocaml'; then
+      # This code commit has a bootstrap parent - so we can search for a unified commit
+      combined=''
+      while read -r commit; do
+        if git diff --quiet $cached $commit; then
+          combined="$commit"
+          break;
+        fi
+      done < <(git reflog --format='%h %p' | grep " ${head_sha}\$" | cut -f1 -d' ' | sort | uniq)
+      if [[ -n $combined ]] && git diff-tree --no-commit-id --name-only -r "$combined" | grep -Fq 'boot/ocaml'; then
+        echo "Re-using previous coreboot computation from $combined"
+        git reset --hard $combined &> /dev/null
+        COMMITS+=("coreboot $combined")
+        return
+      fi
+    fi
+    git reset --hard $head_sha &> /dev/null
+    if ! ./configure --disable-native-compiler --disable-ocamldoc --disable-ocamltest --disable-debugger > _log 2>&1; then
+      cat _log
+      rm _log
+      abort
+      echo "configure failed: either fix or erase $state_file"
+      return
+    fi
+    echo 'Warming up...'
+    if ! make -j coldstart > _log 2>&1; then
+      cat _log
+      rm _log
+      abort
+      echo "make coldstart failed: either fix or erase $state_file"
+      return
+    fi
+    echo 'Building...'
+    if ! git merge --ff-only $code_sha &> /dev/null || ! make -j coreall > _log 2>&1; then
+      cat _log
+      rm _log
+      git reset --hard $head_sha &> /dev/null
+      git cherry-pick --no-commit $code_sha &> /dev/null
+      abort
+      echo "make coreall failed: either fix or erase $state_file"
+      echo 'Do _not_ bootstrap'
+      return
+    fi
+    echo 'Bootstrapping...'
+    if ! make -j bootstrap > _log 2>&1; then
+      cat _log
+      rm _log
+      git reset --hard $head_sha &> /dev/null
+      git cherry-pick --no-commit $code_sha &> /dev/null
+      abort
+      echo "make bootstrap failed: either fix or erase $state_file"
+      echo 'Do _not_ bootstrap'
+    else
+      rm _log
+      git clean -dfX &> /dev/null
+      # OCaml 4.06 and earlier
+      if [[ -e boot/ocamldep ]]; then
+        git add -- boot/ocamldep
+      fi
+      git add -- boot/ocamlc boot/ocamllex
+      if ! git commit -m 'Bootstrap' &> _log; then
         cat _log
         rm _log
         abort
         echo "Commit failed - please fix and re-run $0"
-        return
-      fi
-      rm -f _log
-      git rebase --committer-date-is-author-date HEAD~1 &> /dev/null
-      head="$(git rev-parse --short HEAD)"
-      if [[ -n $2 ]]; then
-        eval "com=\"$2\""
-        COMMITS+=("$com")
       else
-        previous="${COMMITS[-1]}"
-        previous="${previous% *}"
-        COMMITS[-1]="$previous $head"
+        rm -f _log
+        git rebase --committer-date-is-author-date HEAD~1 &> /dev/null
+        boot_sha="$(git rev-parse --short HEAD)"
+        git reset --hard HEAD~1 &> /dev/null
+        git cherry-pick --no-commit $boot_sha &> /dev/null
+        git commit --reuse-message="$1" --amend &> /dev/null
+        git rebase --committer-date-is-author-date HEAD~1 &> /dev/null
+        head="$(git rev-parse --short HEAD)"
+        COMMITS+=("coreboot $head")
       fi
+    fi
+  fi
+}
+
+TO_DELETE=()
+function commit
+{
+  for file in "${TO_DELETE[@]}"; do
+    rm -f "$file"
+  done
+  TO_DELETE=()
+  if [[ -z "$(git status --porcelain)" ]]; then
+    echo "Commit $1 skipped for $target (empty)"
+    head="$(git rev-parse --short HEAD)"
+  else
+    if ! git commit --reuse-message="$1" $4 &> _log; then
+      cat _log
+      rm _log
+      abort
+      echo "Commit failed - please fix and re-run $0"
+      return
+    fi
+    rm -f _log
+    git rebase --committer-date-is-author-date HEAD~1 &> /dev/null
+    head="$(git rev-parse --short HEAD)"
+    if [[ -n $2 ]]; then
+      eval "com=\"$2\""
+      COMMITS+=("$com")
+    else
+      previous="${COMMITS[-1]}"
+      COMMITS[-1]="${previous%% *} $head"
+    fi
+  fi
+  if [[ -z $2 ]]; then
+    previous="${COMMITS[-1]}"
+    if [[ ${previous%% *} = 'coreboot' ]]; then
+      echo "Repeating the previous coreboot"
+      # It's slightly simpler just repeat the coreboot commit rather than
+      # threading this through the entire fixup logic that it needs to
+      # coldstart with HEAD~1. The changes would either need stashing or
+      # committing in stages, etc. which muddles the error code.
+      # Throw this commit away
+      git reset --hard HEAD~1 &> /dev/null
+      # Remove the previous coreboot from COMMITS
+      COMMITS=("${COMMITS[@]:0:$((${#COMMITS[@]} - 1))}")
+      # Add this commit to be coreboot'd now
+      WORKING=("coreboot $head" "${WORKING[@]}")
     fi
   fi
 }
@@ -500,25 +630,87 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
     commit)
       git clean -dfX &> /dev/null
       verb="${arg% *}"
-      if [[ $verb = 'fixup' ]]; then
-        msg="$(git rev-parse --short HEAD)"
-        next=''
-        amend='--amend'
-      else
-        msg="${arg#* }"
-        next="$verb \$head"
-        amend=''
-      fi
       instr="$arg"
-      commit "$msg" "$next" "$arg" "$amend"
-      rebase;;
+      if [[ $verb = 'coreboot' ]]; then
+        coreboot "${arg#* }"
+      else
+        if [[ $verb = 'fixup' ]]; then
+          msg="$(git rev-parse --short HEAD)"
+          next=''
+          amend='--amend'
+        else
+          msg="${arg#* }"
+          next="$verb \$head"
+          amend=''
+        fi
+        if reconfigure; then
+          commit "$msg" "$next" "$arg" "$amend"
+          rebase
+        fi
+      fi;;
     branch)
       target_branch="backport-${arg%.*}"
       echo "Creating branch $target_branch"
       target="$arg"
-      git checkout -B "$target_branch" "$arg" &> /dev/null
-      WORKING=("${COMMITS[@]}")
+      WORKING=()
+      for cmd in "${COMMITS[@]}"; do
+        verb="${cmd%% *}"
+        sha="${cmd#* }"
+        case "$verb" in
+          pick|bootstrap|coreboot)
+            if ! is-backport "$sha" "$target"; then
+              echo "Skipping $sha as it's older than $target ($(git log -n 1 --format=%s $sha))"
+              WORKING+=("next $cmd")
+            else
+              WORKING+=("$cmd")
+            fi;;
+          adjust)
+            # INSTR[0] = adjust; INSTR[1] = count; INSTR[2] = description; INSTR[@]:3 = commits
+            INSTR=($cmd)
+            if ! is-backport "${INSTR[3]}" "$target"; then
+              WORKING+=("next $cmd")
+              echo "Skipping ${INSTR[2]} as it's older than $target"
+            else
+              count="${INSTR[1]}"
+              if [[ $count -eq 0 ]]; then
+                POPPED=()
+              else
+                i=0
+                while [[ $count -gt 0 ]]; do
+                  ((i++))
+                  element="${WORKING[-$i]}"
+                  case "${element%% *}" in
+                    fixup|next) ;;
+                    *) ((count--));
+                  esac
+                done
+                POPPED=("${WORKING[@]: -$i}")
+                WORKING=("${WORKING[@]:0:$((${#WORKING[@]} - $i))}")
+              fi
+              INSTR=("${INSTR[@]:3}")
+              while [[ ${#INSTR[@]} -gt 0 ]]; do
+                sha="${INSTR[0]}"
+                INSTR=("${INSTR[@]:1}")
+                WORKING+=("fixup $sha")
+                loop=1
+                if [[ ${#POPPED[@]} -gt 0 && $loop -eq 1 ]]; then
+                  elt="${POPPED[0]}"
+                  WORKING+=("$elt")
+                  POPPED=("${POPPED[@]:1}")
+                  case "${elt%% *}" in
+                    fixup|next) ;;
+                    *) loop=0;;
+                  esac
+                fi
+              done
+            fi;;
+          *)
+            echo "Internal error: unrecognised command $cmd" >&2
+            exit 1;;
+          esac
+      done
       COMMITS=()
+      git checkout -B "$target_branch" "$arg" &> /dev/null
       rebase;;
     *)
       echo "Internal error: unrecognised command $instr" >&2
