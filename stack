@@ -15,7 +15,9 @@ if ! git rev-parse --verify upstream/trunk &> /dev/null; then
   exit 1
 fi
 
-BRANCHES=()
+# fix-autogen appears first, since it affects any commit touching configure
+# It doesn't need to go in branches, however.
+BRANCHES=(fix-autogen@4.08)
 TARGETS=()
 COMMANDS=()
 
