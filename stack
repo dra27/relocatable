@@ -115,13 +115,24 @@ BRANCHES+=(ext_exe@4.11 shebang@4.09 c89_headers@4.10 rename_T_macro@4.08 use-ru
 #  - misc-win-fixes
 #  - windows-ln
 #  - one-camlheader
+BRANCHES+=(misc-win-fixes windows-ln one-camlheader)
 #  - target-bindir
+BRANCHES+=(target-bindir unified-target-bindir@fixup)
 #  - ld.conf-CRLF
 #  - ld.conf-search
+BRANCHES+=(ld.conf-CRLF ld.conf-search)
 #  - ld.conf-relative
+BRANCHES+=(ld.conf-relative unified-ld.conf-relative@4.14)
 #  - compiled-primitives
+BRANCHES+=(compiled-primitives)
 #  - enable-relative
-BRANCHES+=(misc-win-fixes windows-ln one-camlheader target-bindir unified-target-bindir@fixup ld.conf-CRLF ld.conf-search ld.conf-relative unified-ld.conf-relative@4.14 compiled-primitives enable-relative unified-enable-relative@fixup unified-enable-relative-4.x@fixup unified-enable-relative-4.11@fixup cmmgen-4.09@fixup~1 cmmgen-4.08@fixup~1)
+BRANCHES+=(enable-relative unified-enable-relative@fixup unified-enable-relative-4.x@fixup unified-enable-relative-4.11@fixup cmmgen-4.09@fixup~1 cmmgen-4.08@fixup~1)
+#  - ld-warning
+BRANCHES+=(ld-warning ld-warning-5.0@fixup)
+#  - runtime-id
+BRANCHES+=(runtime-id runtime-id-5.0@fixup runtime-id-4.14@fixup runtime-id-4.13@fixup runtime-id-4.12@fixup runtime-id-4.11@fixup runtime-id-4.10@fixup runtime-id-4.09@fixup runtime-id-4.08@fixup)
+#  - runtime-suffixing
+BRANCHES+=(runtime-suffixing unified-runtime-suffixing@trunk@fixup unified-runtime-suffixing-4.14@4.14@fixup unified-runtime-suffixing-4.12@fixup)
 
 TARGETS=(5.0.0-alpha1 4.14.0 4.13.1 4.12.1 4.11.2 4.10.2 4.09.1 4.08.1)
 
