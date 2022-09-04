@@ -658,7 +658,9 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
         fi
         if reconfigure; then
           commit "$msg" "$next" "$arg" "$amend"
-          rebase
+          if ((!aborting)); then
+            rebase
+          fi
         fi
       fi;;
     branch)
