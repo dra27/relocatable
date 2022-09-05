@@ -469,7 +469,7 @@ function cherry-pick
         DU)
           git reset -- "${status:3}" &> /dev/null
           TO_DELETE+=("${status:3}");;
-        UU)
+        UU|AA)
           if ! grep -q '^<<<<<' "${status:3}" ; then
             git add -- "${status:3}"
           else
