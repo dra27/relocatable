@@ -448,6 +448,7 @@ function reconfigure
     else
       autogen=./autogen
     fi
+    rm -f configure
     if docker run --rm -it -v $PWD:/home/opam/ocaml -w /home/opam/ocaml autogen $autogen; then
       git add -- configure
     else
