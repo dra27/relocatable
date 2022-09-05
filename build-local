@@ -23,7 +23,7 @@ function failed
 function build
 {
   printf "Building OCaml $1... "
-  if ! ./configure --prefix "$prefix/ocaml-$1" --enable-warn-error --enable-relative > _log 2>&1; then
+  if ! ./configure --prefix "$prefix/ocaml-$1" --enable-warn-error --enable-relative --enable-runtime-search=always > _log 2>&1; then
     failed "$1" 'configure'
   fi
   if ! make -j world.opt > _log 2>&1; then
