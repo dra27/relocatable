@@ -359,6 +359,7 @@ function rebase
           git merge --ff-only $cached &> /dev/null
           COMMITS+=("bootstrap $cached")
         else
+          BOOTSTRAPS+=("Bootstrap $target ($sha) on $(git rev-parse --short HEAD)")
           echo "Bootstrapping..."
           if ! ./configure --disable-native-compiler --disable-ocamldoc --disable-ocamltest --disable-debugger > _log 2>&1; then
             cat _log
@@ -397,7 +398,8 @@ function rebase
           fi
         fi;;
       coreboot)
-        echo "Coreboot $target ($sha) on $(git rev-parse --short HEAD)"
+        coreboot="Coreboot $target ($sha) on $(git rev-parse --short HEAD)"
+        echo "$coreboot"
         if cherry-pick "$sha" 'boot/ocaml*' 'Do _not_ bootstrap'; then
           next="${WORKING[0]}"
           if [[ ${next%% *} = 'fixup' ]]; then
@@ -531,6 +533,7 @@ function coreboot
       echo "configure failed: either fix or erase $state_file"
       return
     fi
+    BOOTSTRAPS+=("$coreboot")
     echo 'Warming up...'
     if ! make -j coldstart > _log 2>&1; then
       cat _log
@@ -634,6 +637,7 @@ function commit
   fi
 }
 
+BOOTSTRAP=()
 aborting=0
 while [[ ${#COMMANDS[@]} -gt 0 ]]; do
   instr="${COMMANDS[0]}"
@@ -742,4 +746,12 @@ done
 cd ..
 if ((!aborting)); then
   git submodule update
+fi
+
+if [[ ${#BOOTSTRAPS[@]} -gt 0 ]]; then
+  echo
+  echo Bootstrap summary:
+  for msg in "${BOOTSTRAPS[@]}"; do
+    echo " - $msg"
+  done
 fi
