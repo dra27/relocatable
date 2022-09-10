@@ -1123,7 +1123,7 @@ CAMLexport clock_t caml_win32_clock(void)
 CAMLextern void caml_locate_standard_library (const wchar_t *exe_name)
 {
   if (Is_relative_dir(caml_standard_library_default)) {
-    LPWSTR root, basename, candidate;
+    LPWSTR root, basename, candidate, resolved_candidate;
     DWORD buf_len, l;
     HANDLE h;
     l = GetFullPathName(exe_name, 0, NULL, NULL);
@@ -1146,7 +1146,6 @@ again1:
     /* Make root the dirname */
     *(basename - 1) = 0;
     caml_relative_root_dir = root;
-    LPWSTR resolved_candidate;
     candidate = caml_stat_strconcat_os(3, caml_relative_root_dir,
                                           CAML_DIR_SEP,
                                           caml_standard_library_default);

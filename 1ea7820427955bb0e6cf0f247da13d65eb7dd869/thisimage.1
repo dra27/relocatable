@@ -691,13 +691,16 @@ build_os
 build_vendor
 build_cpu
 build
+target_bindir_exp
 target_bindir
+bindir_exp
 stdlib_manpages
 PACKLD
 flexlink_flags
 flexdll_chain
 default_safe_string
 force_safe_string
+ln
 afl
 flat_float_array
 windows_unicode
@@ -747,6 +750,7 @@ mklib
 RANLIBCMD
 RANLIB
 AR
+bin_sh
 shebangscripts
 bootstrapping_flexdll
 flexdir
@@ -808,7 +812,6 @@ infodir
 docdir
 oldincludedir
 includedir
-runstatedir
 localstatedir
 sharedstatedir
 sysconfdir
@@ -928,7 +931,6 @@ datadir='${datarootdir}'
 sysconfdir='${prefix}/etc'
 sharedstatedir='${prefix}/com'
 localstatedir='${prefix}/var'
-runstatedir='${localstatedir}/run'
 includedir='${prefix}/include'
 oldincludedir='/usr/include'
 docdir='${datarootdir}/doc/${PACKAGE_TARNAME}'
@@ -1181,15 +1183,6 @@ do
   | -silent | --silent | --silen | --sile | --sil)
     silent=yes ;;
 
-  -runstatedir | --runstatedir | --runstatedi | --runstated \
-  | --runstate | --runstat | --runsta | --runst | --runs \
-  | --run | --ru | --r)
-    ac_prev=runstatedir ;;
-  -runstatedir=* | --runstatedir=* | --runstatedi=* | --runstated=* \
-  | --runstate=* | --runstat=* | --runsta=* | --runst=* | --runs=* \
-  | --run=* | --ru=* | --r=*)
-    runstatedir=$ac_optarg ;;
-
   -sbindir | --sbindir | --sbindi | --sbind | --sbin | --sbi | --sb)
     ac_prev=sbindir ;;
   -sbindir=* | --sbindir=* | --sbindi=* | --sbind=* | --sbin=* \
@@ -1327,7 +1320,7 @@ fi
 for ac_var in	exec_prefix prefix bindir sbindir libexecdir datarootdir \
 		datadir sysconfdir sharedstatedir localstatedir includedir \
 		oldincludedir docdir infodir htmldir dvidir pdfdir psdir \
-		libdir localedir mandir runstatedir
+		libdir localedir mandir
 do
   eval ac_val=\$$ac_var
   # Remove trailing slashes.
@@ -1480,7 +1473,6 @@ Fine tuning of the installation directories:
   --sysconfdir=DIR        read-only single-machine data [PREFIX/etc]
   --sharedstatedir=DIR    modifiable architecture-independent data [PREFIX/com]
   --localstatedir=DIR     modifiable single-machine data [PREFIX/var]
-  --runstatedir=DIR       modifiable per-process data [LOCALSTATEDIR/run]
   --libdir=DIR            object code libraries [EPREFIX/lib]
   --includedir=DIR        C header files [PREFIX/include]
   --oldincludedir=DIR     C header files for non-gcc [/usr/include]
@@ -2825,7 +2817,11 @@ VERSION=4.08.1
 
 
 
+
  # TODO: rename this variable
+
+
+
 
 
 
@@ -2880,6 +2876,13 @@ ac_config_files="$ac_config_files Makefile.config"
 ac_config_headers="$ac_config_headers runtime/caml/m.h"
 
 ac_config_headers="$ac_config_headers runtime/caml/s.h"
+
+ac_config_files="$ac_config_files stdlib/camlheader.shebang"
+
+ac_config_files="$ac_config_files stdlib/target_camlheader.shebang"
+
+
+ac_config_commands="$ac_config_commands shebang"
 
 
 # Checks for system types
@@ -3169,7 +3172,7 @@ fi
 if test "${with_target_bindir+set}" = set; then :
   withval=$with_target_bindir; target_bindir=$withval
 else
-  target_bindir='$(BINDIR)'
+  target_bindir=''
 fi
 
 
@@ -12289,11 +12292,32 @@ esac
 case $host in #(
   *-*-mingw32|*-pc-windows) :
     unix_or_win32="win32"
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for a workable solution for ln -sf" >&5
+$as_echo_n "checking for a workable solution for ln -sf... " >&6; }
+  ln -sf configure conftestLink
+  if test -z "$(cmd /c dir conftestLink 2>/dev/null | grep -F SYMLINK)"; then :
+  rm -f conftestLink
+    CYGWIN=winsymlinks:native ln -sf configure conftestLink
+    if test -z "$(cmd /c dir conftestLink 2>/dev/null | grep -F SYMLINK)"; then :
+  ln='cp -pf'
+else
+  ln='CYGWIN=winsymlinks:native ln -sf'
+
+fi
+else
+  ln='ln -sf'
+
+fi
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ln" >&5
+$as_echo "$ln" >&6; }
+
     unixlib="win32unix"
     graphlib="win32graph"
     cc_profile='' ;; #(
   *) :
     unix_or_win32="unix"
+  ln='ln -sf'
   unixlib="unix"
   graphlib="graph"
   cc_profile='-pg' ;;
@@ -12343,6 +12367,7 @@ $as_echo "$ac_cv_sys_interpreter" >&6; }
 interpval=$ac_cv_sys_interpreter
 
 
+bin_sh=''
 long_shebang=false
 if test "x$interpval" = "xyes"; then :
   case $host in #(
@@ -12350,6 +12375,14 @@ if test "x$interpval" = "xyes"; then :
     shebangscripts=false ;; #(
   *) :
     shebangscripts=true
+      bin_sh="$(command -v sh 2>/dev/null)"
+      if test x"$bin_sh" = 'x' || test x"${bin_sh#* }" != x"$bin_sh" \
+             || test "${#bin_sha}" -gt 125; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: could not determine a shebang-compatible location of sh - #! scripts disabled" >&5
+$as_echo "$as_me: WARNING: could not determine a shebang-compatible location of sh - #! scripts disabled" >&2;}
+        shebangscripts=false
+        bin_sh=''
+fi
      ;;
 esac
 else
@@ -17433,6 +17466,24 @@ else
   stdlib_manpages=false
 fi
 
+if test x"$bindir" = 'x${exec_prefix}/bin'; then :
+  if test x"$exec_prefix" = 'xNONE'; then :
+  if test x"$prefix" = 'xNONE'; then :
+  bindir_exp="${ac_default_prefix}/bin"
+else
+  bindir_exp="${prefix}/bin"
+fi
+else
+  bindir_exp="${exec_prefix}/bin"
+fi
+fi
+if test x"${target_bindir}" = 'x'; then :
+  target_bindir='$(BINDIR)'
+  target_bindir_exp="$bindir_exp"
+else
+  target_bindir_exp="${target_bindir}"
+fi
+
 # Do not permanently cache the result of flexdll.h
 unset ac_cv_header_flexdll_h
 
@@ -18128,6 +18179,9 @@ cat >>$CONFIG_STATUS <<_ACEOF || ac_write_fail=1
 # INIT-COMMANDS
 #
 
+  sed -e 's/bindir_exp/target_&/' stdlib/camlheader.shebang.in \
+    > stdlib/target_camlheader.shebang.in
+
 
 # The HP-UX ksh and POSIX shell print the target directory to stdout
 # if CDPATH is set.
@@ -18423,6 +18477,9 @@ do
     "Makefile.config") CONFIG_FILES="$CONFIG_FILES Makefile.config" ;;
     "runtime/caml/m.h") CONFIG_HEADERS="$CONFIG_HEADERS runtime/caml/m.h" ;;
     "runtime/caml/s.h") CONFIG_HEADERS="$CONFIG_HEADERS runtime/caml/s.h" ;;
+    "stdlib/camlheader.shebang") CONFIG_FILES="$CONFIG_FILES stdlib/camlheader.shebang" ;;
+    "stdlib/target_camlheader.shebang") CONFIG_FILES="$CONFIG_FILES stdlib/target_camlheader.shebang" ;;
+    "shebang") CONFIG_COMMANDS="$CONFIG_COMMANDS shebang" ;;
     "libtool") CONFIG_COMMANDS="$CONFIG_COMMANDS libtool" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;

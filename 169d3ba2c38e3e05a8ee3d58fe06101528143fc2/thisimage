@@ -350,9 +350,9 @@ $(foreach object_type, $(object_types), \
 
 dynlink_%.$(O): OC_CPPFLAGS += $(STDLIB_CPP_FLAG)
 
-$(UNIX_OR_WIN32)_non_shared.%.$(O): OC_CPPFLAGS += -DBUILDING_LIBCAMLRUNS
+$(UNIX_OR_WIN32)_non_shared_%.$(O): OC_CPPFLAGS += -DBUILDING_LIBCAMLRUNS
 
-$(eval $(call COMPILE_C_FILE,$(UNIX_OR_WIN32)_non_shared.%,$(UNIX_OR_WIN32)))
+$(eval $(call COMPILE_C_FILE,$(UNIX_OR_WIN32)_non_shared_%,$(UNIX_OR_WIN32)))
 
 $(foreach object_type,$(subst %,,$(object_types)), \
   $(eval dynlink$(object_type).$(O): $(ROOTDIR)/Makefile.config))

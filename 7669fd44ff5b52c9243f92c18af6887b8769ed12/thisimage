@@ -17274,7 +17274,7 @@ else
   ocamldoc=ocamldoc
 fi
 
-case $enable_ocamltest,4.09.1 in #(
+case $enable_ocamltest,4.08.1 in #(
   yes,*|,*+dev*) :
     ocamltest='ocamltest' ;; #(
   *) :

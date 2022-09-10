@@ -61,7 +61,7 @@ ocamllex: $(OBJS)
 >>>>>>>
 
 ocamllex.opt: $(OBJS:.cmo=.cmx)
-	$(CAMLOPT_CMD) -o ocamllex.opt $(OBJS:.cmo=.cmx)
+	$(CAMLOPT_CMD) $(DOTOPT_LINKFLAGS) -o ocamllex.opt $(OBJS:.cmo=.cmx)
 
 clean::
 	rm -f ocamllex ocamllex.opt

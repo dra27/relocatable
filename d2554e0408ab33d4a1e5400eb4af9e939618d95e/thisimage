@@ -41,11 +41,6 @@ defaultentry: world
 endif
 
 MKDIR=mkdir -p
-ifeq "$(UNIX_OR_WIN32)" "win32"
-LN = cp
-else
-LN = ln -sf
-endif
 
 include stdlib/StdlibModules
 

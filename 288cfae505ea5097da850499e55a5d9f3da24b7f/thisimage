@@ -119,6 +119,7 @@ AC_SUBST([flexdir])
 AC_SUBST([bootstrapping_flexdll])
 AC_SUBST([long_shebang])
 AC_SUBST([shebangscripts])
+AC_SUBST([bin_sh])
 AC_SUBST([AR])
 AC_SUBST([RANLIB])
 AC_SUBST([RANLIBCMD])
@@ -162,6 +163,7 @@ AC_SUBST([windows_unicode])
 AC_SUBST([flat_float_array])
 AC_SUBST([function_sections])
 AC_SUBST([afl])
+AC_SUBST([ln])
 AC_SUBST([force_safe_string])
 AC_SUBST([default_safe_string])
 AC_SUBST([flexdll_chain])
@@ -171,7 +173,9 @@ AC_SUBST([stdlib_manpages])
 AC_SUBST([compute_deps])
 AC_SUBST([naked_pointers])
 AC_SUBST([naked_pointers_checker])
+AC_SUBST([bindir_exp])
 AC_SUBST([target_bindir])
+AC_SUBST([target_bindir_exp])
 AC_SUBST([bindir_to_libdir])
 
 ## Generated files
@@ -179,12 +183,18 @@ AC_SUBST([bindir_to_libdir])
 AC_CONFIG_FILES([Makefile.build_config])
 AC_CONFIG_FILES([Makefile.config])
 AC_CONFIG_FILES([stdlib/sys.ml])
+AC_CONFIG_FILES([stdlib/camlheader.shebang])
+AC_CONFIG_FILES([stdlib/target_camlheader.shebang])
 AC_CONFIG_FILES([manual/src/version.tex])
 AC_CONFIG_FILES([manual/src/html_processing/src/common.ml])
 AC_CONFIG_FILES([tools/eventlog_metadata])
 AC_CONFIG_HEADERS([runtime/caml/m.h])
 AC_CONFIG_HEADERS([runtime/caml/s.h])
 AC_CONFIG_HEADERS([runtime/caml/version.h])
+
+AC_CONFIG_COMMANDS([shebang],[],[
+  sed -e 's/bindir_exp/target_&/' stdlib/camlheader.shebang.in \
+    > stdlib/target_camlheader.shebang.in])
 
 # Definitions related to the version of OCaml
 AC_DEFINE([OCAML_VERSION_MAJOR], [OCAML__VERSION_MAJOR])
@@ -351,7 +361,7 @@ AC_ARG_WITH([target-bindir],
   [AS_HELP_STRING([--with-target-bindir],
     [location of the runtime binaries on target system])],
   [target_bindir=$withval],
-  [target_bindir='$(BINDIR)'])
+  [target_bindir=''])
 
 AC_ARG_ENABLE([reserved-header-bits],
   [AS_HELP_STRING([--enable-reserved-header-bits=BITS],
@@ -549,9 +559,11 @@ AS_CASE([$ocaml_cv_cc_vendor],
 AS_CASE([$host],
   [*-*-mingw32|*-pc-windows],
     [unix_or_win32="win32"
+    OCAML_CHECK_LN_ON_WINDOWS
     unixlib="win32unix"
     ],
   [unix_or_win32="unix"
+  ln='ln -sf'
   unixlib="unix"])
 AS_CASE([$host],
   [*-*-cygwin*|*-*-mingw32|*-pc-windows],
@@ -573,13 +585,21 @@ AS_IF([test x"$enable_str_lib" != "xno"],
 ## TODO: have two values, one for host and one for target
 AC_SYS_INTERPRETER
 
+bin_sh=''
 long_shebang=false
 AS_IF(
   [test "x$interpval" = "xyes"],
     [AS_CASE([$host],
       [*-cygwin|*-*-mingw32|*-pc-windows],
         [shebangscripts=false],
-      [shebangscripts=true]
+      [shebangscripts=true
+      bin_sh="$(command -v sh 2>/dev/null)"
+      AS_IF([test x"$bin_sh" = 'x' || test x"${bin_sh#* }" != x"$bin_sh" \
+             || test "${#bin_sha}" -gt 125],
+        [AC_MSG_WARN([m4_normalize([could not determine a shebang-compatible
+                                   location of sh - #! scripts disabled])])
+        shebangscripts=false
+        bin_sh=''])]
     )],
   [shebangscripts=false]
 )
@@ -2053,6 +2073,17 @@ AS_CASE([$host],
 
 AS_IF([test x"$enable_stdlib_manpages" != "xno"],
   [stdlib_manpages=true],[stdlib_manpages=false])
+
+AS_IF([test x"$bindir" = 'x${exec_prefix}/bin'],
+  [AS_IF([test x"$exec_prefix" = 'xNONE'],
+    [AS_IF([test x"$prefix" = 'xNONE'],
+      [bindir_exp="${ac_default_prefix}/bin"],
+      [bindir_exp="${prefix}/bin"])],
+    [bindir_exp="${exec_prefix}/bin"])])
+AS_IF([test x"${target_bindir}" = 'x'],
+  [target_bindir='$(BINDIR)'
+  target_bindir_exp="$bindir_exp"],
+  [target_bindir_exp="${target_bindir}"])
 
 # Do not permanently cache the result of flexdll.h
 unset ac_cv_header_flexdll_h

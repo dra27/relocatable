@@ -1107,7 +1107,7 @@ depend: beforedepend
 .PHONY: distclean
 distclean: clean
 	rm -f boot/ocamlrun boot/ocamlrun boot/ocamlrun.exe boot/camlheader \
-	boot/ocamlruns boots/ocamlruns.exe \
+	boot/ocamlruns boot/ocamlruns.exe \
 	boot/flexlink.byte boot/flexlink.byte.exe \
 	boot/flexdll_*/o boot/flexdll_*.obj \
 	boot/*.cm* boot/libcamlrun.a boot/libcamlrun.lib boot/ocamlc.opt

@@ -39,7 +39,7 @@ NOSTDLIB= camlinternalFormatBasics.cmo stdlib.cmo
 OTHERS=$(filter-out $(NOSTDLIB),$(OBJS))
 
 .PHONY: all
-all: stdlib.cma std_exit.cmo camlheader
+all: stdlib.cma std_exit.cmo camlheader target_camlheader
 
 .PHONY: allopt opt.opt # allopt and opt.opt are synonyms
 allopt: stdlib.cmxa std_exit.cmx
@@ -60,8 +60,7 @@ INSTALL_STDLIB_META_DIR=$(DESTDIR)$(LIBDIR)/stdlib
 
 install::
 	$(INSTALL_DATA) \
-	  stdlib.cma std_exit.cmo *.cmi camlheader \
-	  "$(INSTALL_LIBDIR)"
+	  stdlib.cma std_exit.cmo *.cmi "$(INSTALL_LIBDIR)"
 	$(MKDIR) "$(INSTALL_STDLIB_META_DIR)"
 	$(INSTALL_DATA) META "$(INSTALL_STDLIB_META_DIR)"
 ifeq "$(INSTALL_SOURCE_ARTIFACTS)" "true"
@@ -69,6 +68,7 @@ ifeq "$(INSTALL_SOURCE_ARTIFACTS)" "true"
 	  *.cmt *.cmti *.mli *.ml *.ml.in \
 	  "$(INSTALL_LIBDIR)"
 endif
+	$(INSTALL_DATA) target_camlheader "$(INSTALL_LIBDIR)/camlheader"
 
 .PHONY: installopt
 installopt: installopt-default
@@ -102,18 +102,20 @@ endif
 
 ifeq "$(SHEBANGSCRIPTS)" "true"
 
-camlheader:
-	echo '#!' | tr -d '\012' > $@
+%header: %header.shebang
+	sed -e 's/^ *//;/^#[^!]/d;/^$$/d' $< > $@
 
 else # Shebang scripts not supported
 
-camlheader: $(HEADERPROGRAM).c $(ROOTDIR)/Makefile.config Makefile
+%header: $(HEADERPROGRAM).c $(ROOTDIR)/Makefile.config Makefile
 
 # $@.exe is deleted to ensure no Cygwin .exe mangling takes place
-camlheader: tmpheader.exe
+%header: %header.shebang tmpheader.exe
 	rm -f $@.exe
-	mv $< $@
+	sed -ne '/^\#!/s/^\#!/!\#/p' $< > $@
+	cat tmpheader.exe >> $@
 
+.INTERMEDIATE: tmpheader.exe
 tmpheader.exe: $(HEADERPROGRAM).$(O)
 	$(call MKEXE_VIA_CC,$@,$^)
 # FIXME This is wrong - mingw could invoke strip; MSVC equivalent?
@@ -135,11 +137,11 @@ stdlib.cmxa: $(OBJS:.cmo=.cmx)
 
 .PHONY: distclean
 distclean: clean
-	rm -f sys.ml META
+	rm -f sys.ml META *.shebang target_camlheader.shebang.in
 
 .PHONY: clean
 clean::
-	rm -f camlheader
+	rm -f camlheader target_camlheader
 
 export AWK
 

@@ -25,12 +25,6 @@ else
 defaultentry: world
 endif
 
-ifeq "$(UNIX_OR_WIN32)" "win32"
-LN = cp
-else
-LN = ln -sf
-endif
-
 include stdlib/StdlibModules
 
 CAMLC=$(BOOT_OCAMLC) -g -nostdlib -I boot

@@ -21,7 +21,6 @@ Here is a summary of the main differences between these ports:
 | Replay debugger                        | yes <<tb2,(**)>>       | yes <<tb2,(**)>> | yes
 | The Unix library                       | partial                | partial          | full
 | The Threads library                    | yes                    | yes              | yes
-| The Graphics library                   | yes                    | yes              | no
 | Restrictions on generated executables? | none                   | none             | yes <<tb1,(*)>>
 |=====
 
@@ -108,6 +107,7 @@ Visual C/C++ Compiler as well as the Build Tools for Visual Studio.
 | Visual Studio 2013 | 18.00.x.x    | 32/64-bit               |
 | Visual Studio 2015 | 19.00.x.x    | 32/64-bit               | Build Tools for Visual Studio 2015 also provides 32/64-bit compilers
 | Visual Studio 2017 | 19.10.x.x    | 32/64-bit               | Build Tools for Visual Studio 2017 also provides 32/64-bit compilers
+| Visual Studio 2019 | 19.20.x.x    | 32/64-bit               | Build Tools for Visual Studio 2019 also provides 32/64-bit compilers
 |=====
 
 [[vs1]]
@@ -196,7 +196,7 @@ the top-level of the OCaml distribution by running:
 
   eval $(tools/msvs-promote-path)
 
-If you forget to do this, `make world.opt` will fail relatively
+If you forget to do this, `make` will fail relatively
 quickly as it will be unable to link `ocamlrun`.
 
 Now run:
@@ -207,13 +207,11 @@ for 32-bit, or:
 
         ./configure --build=x86_64-unknown-cygwin --host=x86_64-pc-windows
 
-for 64-bit. Then, edit `Makefile.config` as needed, following the comments in
-this file. Normally, the only variable that needs to be changed is `PREFIX`,
-which indicates where to install everything.
+for 64-bit.
 
 Finally, use `make` to build the system, e.g.
 
-        make world.opt
+        make
         make install
 
 After installing, it is not necessary to keep the Cygwin installation (although
@@ -231,7 +229,7 @@ your `~/.bashrc` file.
   the performance of bytecode programs is about 2/3 of that obtained under
   Unix/GCC,  Cygwin or Mingw-w64 on similar hardware.
 
-* Libraries available in this port: `bigarray`, `dynlink`, `graphics`, `num`,
+* Libraries available in this port: `bigarray`, `dynlink`, `num`,
   `str`, `threads`, and large parts of `unix`.
 
 * The replay debugger is partially supported (no reverse execution).
@@ -274,20 +272,18 @@ for 32-bit, or:
 
         ./configure --build=x86_64-unknown-cygwin --host=x86_64-w64-mingw32
 
-for 64-bit. Then, edit `Makefile.config` as needed, following the comments in
-this file. Normally, the only variable that needs to be changed is `PREFIX`,
-which indicates where to install everything.
+for 64-bit.
 
 Finally, use `make` to build the system, e.g.
 
-        make world.opt
+        make
         make install
 
 After installing, you will need to ensure that `ocamlopt` (or `ocamlc -custom`)
 can access the C compiler.  You can do this either by using OCaml from Cygwin's
 bash or by adding Cygwin's bin directory (e.g. `C:\cygwin\bin`) to your `PATH`.
 
-* Libraries available in this port: `bigarray`, `dynlink`, `graphics`, `num`,
+* Libraries available in this port: `bigarray`, `dynlink`, `num`,
   `str`, `threads`, and large parts of `unix`.
 
 * The replay debugger is partially supported (no reverse execution).

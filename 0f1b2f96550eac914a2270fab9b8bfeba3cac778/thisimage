@@ -48,7 +48,7 @@ define byte_and_opt_
 $(and $(filter-out 1,$(words $1)),$(error \
    cannot build file with whitespace in name))
 $1: $3 $2
-	$$(CAMLC) $$(LINKFLAGS) $$(BYTELINK_FLAGS) -I $$(ROOTDIR) -o $$@ $2
+	$$(CAMLC) $$(LINKFLAGS) -I $$(ROOTDIR) -o $$@ $2
 
 <<<<<<<
 $(call PROGRAM_SYNONYM, $1.opt)
@@ -91,13 +91,6 @@ INCLUDES = $(addprefix -I $(ROOTDIR)/,utils parsing typing bytecomp \
 COMPFLAGS = -absname -w +a-4-9-41-42-44-45-48 -strict-sequence -warn-error A \
  -principal -safe-string -strict-formats -bin-annot $(INCLUDES)
 LINKFLAGS = $(INCLUDES)
-BYTELINK_FLAGS = -use-prims $(ROOTDIR)/runtime/primitives -I $(ROOTDIR) \
-                 -use-runtime $(RUNTIME_NAME)
-ifeq "$(SUPPORTS_SHARED_LIBRARIES)" "true"
-  BYTELINK_FLAGS_WITH_OTHERLIBS = $(BYTELINK_FLAGS)
-else
-  BYTELINK_FLAGS_WITH_OTHERLIBS = -custom
-endif
 VPATH := $(filter-out -I,$(INCLUDES))
 
 .PHONY: all allopt opt.opt # allopt and opt.opt are synonyms
@@ -178,12 +171,6 @@ $(call byte_and_opt,ocamlmktop,$(OCAMLMKTOP_IMPORTS) $(OCAMLMKTOP),)
 
 LIBRARY3=config.cmo build_path_prefix_map.cmo misc.cmo warnings.cmo location.cmo
 
-ifeq ($(UNIX_OR_WIN32),unix)
-LN := ln -sf
-else
-LN := cp -pf
-endif
-
 install::
 ifeq "$(INSTALL_BYTECODE_PROGRAMS)" "true"
 	for i in $(install_files); \
@@ -211,7 +198,7 @@ endif
 CVT_EMIT=cvt_emit.cmo
 
 cvt_emit: $(CVT_EMIT)
-	$(CAMLC) $(LINKFLAGS) $(BYTELINK_FLAGS) -o cvt_emit $(CVT_EMIT)
+	$(CAMLC) $(LINKFLAGS) -o cvt_emit $(CVT_EMIT)
 
 # cvt_emit is precious: sometimes we are stuck in the middle of a
 # bootstrap and we need to remake the dependencies
@@ -254,7 +241,7 @@ DUMPOBJ= \
 $(call byte_and_opt,dumpobj,$(DUMPOBJ),)
 
 make_opcodes: make_opcodes.ml
-	$(CAMLC) $(BYTELINK_FLAGS) make_opcodes.ml -o $@
+	$(CAMLC) make_opcodes.ml -o $@
 
 opnames.ml: $(ROOTDIR)/runtime/caml/instruct.h make_opcodes
 	$(ROOTDIR)/runtime/ocamlrun make_opcodes -opnames < $< > $@
@@ -367,8 +354,7 @@ caml-tex: INCLUDES += $(addprefix -I $(ROOTDIR)/otherlibs/,str $(UNIXLIB)) \
                       -I $(ROOTDIR)/runtime
 caml-tex: $(CAMLTEX)
 	$(ROOTDIR)/runtime/ocamlrun $(ROOTDIR)/ocamlc -nostdlib \
-	                            -I $(ROOTDIR)/stdlib $(LINKFLAGS) \
-	                            $(BYTELINK_FLAGS) -linkall \
+	                            -I $(ROOTDIR)/stdlib $(LINKFLAGS) -linkall \
 	                            -o $@ -no-alias-deps $(CAMLTEX)
 
 # we need str and unix which depend on the bytecode version of other tools

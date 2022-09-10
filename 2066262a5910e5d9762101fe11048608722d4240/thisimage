@@ -1360,7 +1360,7 @@ depend: beforedepend
 
 .PHONY: distclean
 distclean: clean
-	rm -f boot/ocamlrun boot/ocamlrun$(EXE) boot/camlheader \
+	rm -f boot/ocamlrun boot/ocamlrun.exe boot/camlheader \
 	boot/ocamlruns boot/ocamlruns.exe \
 	boot/flexlink.byte boot/flexlink.byte.exe \
 	boot/flexdll_*.o boot/flexdll_*.obj \
