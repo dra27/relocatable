@@ -88,7 +88,12 @@ BRANCHES+=(disable-ocamltest@4.10)
 # - Allow make's default target to build the compiler (from #8951; 4.10.0)
 # - Revert the Wdeclaration-after-statement dev-error (from #1176; 4.11.0 - back-ports part of #11051; 5.0.0)
 # - Don't define _INTEGRAL_MAX_BITS in Windows stat implementation (#9686; 4.12.0)
-BRANCHES+=(win32-safe-string@4.08 _integral_max_bits@4.11 declaration-after-statement@4.14 warn-error@4.11 make-default-target@4.09)
+# - autoconf tweaks (#8639; 4.11.0)
+# - fix tools/check-symbol-names (#9260; 4.11.0)
+BRANCHES+=(win32-safe-string@4.08 _integral_max_bits@4.11 declaration-after-statement@4.14 warn-error@4.11 make-default-target@4.09 autoconf-tweak@4.10 runtime_name_escape@4.10)
+
+# - CI tweaks and backports
+BRANCHES+=(ocamltest@5.0 github-attributes@4.11 ocamltest-4.14@4.14 ocamltest-4.12@4.12 ocamltest-4.11@4.11)
 
 # This slightly simplifies the patch rebasing infrastructure, as it stops
 # configure from being completely rejected
