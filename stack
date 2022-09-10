@@ -132,9 +132,9 @@ BRANCHES+=(ld.conf-CRLF ld.conf-search)
 #  - ld.conf-relative
 BRANCHES+=(ld.conf-relative unified-ld.conf-relative@4.14)
 #  - compiled-primitives
-BRANCHES+=(compiled-primitives)
+BRANCHES+=(compiled-primitives compiled-primitives-4.12@fixup)
 #  - enable-relative
-BRANCHES+=(enable-relative unified-enable-relative@fixup~1 unified-enable-relative-4.x@4.14@fixup unified-enable-relative-4.11@fixup~1 cmmgen-4.09@fixup~1 cmmgen-4.08@fixup~1)
+BRANCHES+=(enable-relative unified-enable-relative@fixup~1 unified-enable-relative-4.x@4.14@fixup unified-enable-relative-4.11@4.11@fixup cmmgen-4.09@fixup~1)
 #  - ld-warning
 BRANCHES+=(ld-warning ld-warning-5.0@fixup)
 #  - runtime-id
