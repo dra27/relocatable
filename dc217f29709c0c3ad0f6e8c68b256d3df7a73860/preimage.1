@@ -1,0 +1,44 @@
+#!/bin/sh
+#**************************************************************************
+#*                                                                        *
+#*                                 OCaml                                  *
+#*                                                                        *
+#*            Sebastien Hinderer, projet Gallium, INRIA Paris             *
+#*                                                                        *
+#*   Copyright 2016 Institut National de Recherche en Informatique et     *
+#*     en Automatique.                                                    *
+#*                                                                        *
+#*   All rights reserved.  This file is distributed under the terms of    *
+#*   the GNU Lesser General Public License version 2.1, with the          *
+#*   special exception on linking described in the file LICENSE.          *
+#*                                                                        *
+#**************************************************************************
+
+# This script provides command-line options to use by default
+# when invoking ocamlopt
+
+# It is used to add that disable annoying linker warnings on some versions
+# of OpenBSD
+
+<<<<<<<
+case "$1" in
+  i386-*-openbsd5.[5-9]*|i386-*-openbsd[6-9].*)
+    echo "-ccopt -nopie";;
+esac
+=======
+if [[ $1 = 'push' && ${11} = 'ocaml/ocaml' ]]; then
+  # Always build the manual for pushes to ocaml/ocaml
+  result=true
+else
+  # We need all the commits in the PR to be available
+  . tools/ci/actions/deepen-fetch.sh
+  if git diff "$MERGE_BASE..$PR_HEAD" --name-only --exit-code \
+       -- manual/* > /dev/null; then
+    result=false
+  else
+    result=true
+  fi
+fi
+
+echo "::set-output name=changed::$result"
+>>>>>>>

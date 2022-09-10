@@ -1,0 +1,66 @@
+#**************************************************************************
+#*                                                                        *
+#*                                 OCaml                                  *
+#*                                                                        *
+#*                       David Allsopp, Tarides UK                        *
+#*                                                                        *
+#*   Copyright 2022 David Allsopp Ltd.                                    *
+#*                                                                        *
+#*   All rights reserved.  This file is distributed under the terms of    *
+#*   the GNU Lesser General Public License version 2.1, with the          *
+#*   special exception on linking described in the file LICENSE.          *
+#*                                                                        *
+#**************************************************************************
+
+# The launcher for bytecode executables with --enable-runtime-search. This file
+# is post-processed in two stages. During the build, comments, blank lines and
+# leading whitespace are stripped. Lines beginning with ">" either have the >
+# removed (in normal --enable-runtime-search mode) or the line is entirely
+# deleted (in --enable-runtime-search=always mode).
+# When ocamlc uses the script, four further substitutions take place:
+#   :r - becomes the name of the primary runtime, quoted for the shell
+#   :a - becomes the quoted names of additional runtimes to search for.
+
+# The actual shebang
+#!@bin_sh@
+
+# Absolute path to the runtime, substituted by ocamlc
+# Typical values: $r = ocamlrun; $c = /usr/local/bin/ocamlrun
+# In search=always mode $c is not required.
+r=:r
+>c=@bindir_exp_sh@"$r"
+
+# For the absolute path to the runtime, use test -f - if the runtime exists, but
+# is not executable, then exec will produce the required error message, keeping
+# the behaviour as if this header had begun #!@bindir_exp_sh@:r
+>if ! test -f "$c"; then
+  # Primary runtime not found: search by runtime name(s). Prefer a runtime found
+  # in the same directory as the executable.
+  d="$(dirname "$0" 2>/dev/null)"
+  # If for some reason dirname fails, $d will be empty and command is simply
+  # called twice for each runtime (the user who cares may configure their POSIX
+  # system correctly).
+  # Ensure that $d ends with a slash
+  test -z "$d" || d="${d%/}/"
+  for r in "$r":a; do
+    # Search first in the same directory as this executable
+    c="$(command -v "$d$r")"
+    # If that fails, search in PATH
+    test -n "$c" || c="$(command -v "$r")"
+    # If either test has found a runtime, stop searching
+    test -z "$c" || break
+  done
+>fi
+
+# At this stage, if $c is non-empty then the file it names should exist, but is
+# not necessarily executable.
+if test -z "$c"; then
+  echo 'This program requires OCaml @OCAML_VERSION_MAJOR@.@OCAML_VERSION_MINOR@'>&2
+  echo "The interpreter ($r) was not found either with $0 or in \$PATH">&2
+else
+  exec "$c" "$0" "$@"
+fi
+
+# Either an error was displayed that the runtime could not be found, or exec
+# failed. In both cases, return exit code 126.
+exit 126

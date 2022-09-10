@@ -1,0 +1,30 @@
+#**************************************************************************
+#*                                                                        *
+#*                                 OCaml                                  *
+#*                                                                        *
+#*                       David Allsopp, Tarides UK                        *
+#*                                                                        *
+#*   Copyright 2022 David Allsopp Ltd.                                    *
+#*                                                                        *
+#*   All rights reserved.  This file is distributed under the terms of    *
+#*   the GNU Lesser General Public License version 2.1, with the          *
+#*   special exception on linking described in the file LICENSE.          *
+#*                                                                        *
+#**************************************************************************
+
+<<<<<<<
+# The launcher for bytecode executables using a #! header. This file is
+# post-processed to consist of two lines. The first is the shebang to which the
+# name of the runtime is appended by ocamlc. The second line is the path to sh
+# to be used if the first line is not a valid shebang (either because it is too
+# long or contains spaces).
+=======
+# The launcher for bytecode executables with --disable-runtime-search using a
+# #! header. This file is post-processed to consist of two lines. The first is
+# the shebang to which the name of the runtime is appended by ocamlc. The second
+# line is the path to sh to be used if the first line is not a valid shebang
+# (either because it is too long or contains spaces).
+>>>>>>>
+
+#!@bindir_exp@
+@bin_sh@
