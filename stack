@@ -27,7 +27,7 @@ COMMANDS=()
 BRANCHES+=(fcommon@4.08)
 # - SIGSTKSZ change in glibc 2.34 (#10266 and #10726; 4.13.0, 4.14.0)
 #   opam-repository carries this patch already
-BRANCHES+=(sigaltstack)
+BRANCHES+=(sigaltstack sigaltstack-4.09@fixup)
 # - Correct configure script for 4.09.1
 #   configure wasn't regenerated; opam-repository carries this patch already
 BRANCHES+=(fix-4.09.1-configure@4.09)
@@ -90,10 +90,10 @@ BRANCHES+=(disable-ocamltest@4.10)
 # - Don't define _INTEGRAL_MAX_BITS in Windows stat implementation (#9686; 4.12.0)
 # - autoconf tweaks (#8639; 4.11.0)
 # - fix tools/check-symbol-names (#9260; 4.11.0)
-BRANCHES+=(win32-safe-string@4.08 _integral_max_bits@4.11 declaration-after-statement@4.14 warn-error@4.11 make-default-target@4.09 autoconf-tweak@4.10 runtime_name_escape@4.10)
+BRANCHES+=(win32-safe-string@4.08 _integral_max_bits@4.11 declaration-after-statement@4.14 warn-error@4.11 make-default-target@4.09 autoconf-tweak@4.10 autoconf-tweak-4.09@fixup~1 runtime_name_escape@4.10)
 
 # - CI tweaks and backports
-BRANCHES+=(ocamltest@5.0 github-attributes@4.11 ocamltest-4.14@4.14 ocamltest-4.12@4.12 ocamltest-4.11@4.11)
+BRANCHES+=(improve-depend-from-scratch@4.09 ocamltest@5.0 github-attributes@4.11 ocamltest-4.14@4.14 ocamltest-4.12@4.12 ocamltest-4.11@4.11 ocamltest-tweak@4.11 ocamltest-4.09@fixup~2 fix-test-4229@4.09 ocamltest-4.08@4.08)
 
 # This slightly simplifies the patch rebasing infrastructure, as it stops
 # configure from being completely rejected
@@ -117,7 +117,7 @@ BRANCHES+=(no-configure@4.11)
 # - Add runtime/build_config.h (from #10451; 4.13.0)
 # - Simplification of ocamlcp/ocamloptp processing (#1941; 4.09.0)
 # - Share argument implementations (from #8992; 4.10.0)
-BRANCHES+=(ext_exe@4.11 shebang@4.09 c89_headers@4.10 rename_T_macro@4.08 use-runtime-evil@4.14 use-runtime-evil-fixup@fixup ocamlrun-config@4.12 ocamlmklibconfig-cleanup@4.12 unix-realpath@4.12 build_config@4.12 build_config-4.11@fixup ocamlc-dedup3@4.08 shared_args-4.09@4.09 shared_args-4.08@4.08)
+BRANCHES+=(ext_exe@4.11 shebang@4.09 c89_headers@4.10 rename_T_macro@4.08 use-runtime-evil@4.14 use-runtime-evil-fixup@fixup ocamlrun-config@4.12 ocamlmklibconfig-cleanup@4.12 unix-realpath@4.12 build_config@4.12 build_config-4.11@fixup build_config-4.08@fixup ocamlc-dedup3@4.08 shared_args-4.09@4.09 shared_args-4.08@4.08)
 
 # Branches
 #  - misc-win-fixes
@@ -134,7 +134,7 @@ BRANCHES+=(ld.conf-relative unified-ld.conf-relative@4.14)
 #  - compiled-primitives
 BRANCHES+=(compiled-primitives compiled-primitives-4.12@fixup)
 #  - enable-relative
-BRANCHES+=(enable-relative unified-enable-relative@fixup~1 unified-enable-relative-4.x@4.14@fixup unified-enable-relative-4.11@4.11@fixup cmmgen-4.09@fixup~1)
+BRANCHES+=(enable-relative unified-enable-relative@fixup~1 unified-enable-relative-4.x@4.14@fixup unified-enable-relative-4.11@4.11@fixup cmmgen-4.09@fixup~1 unified-enable-relative-4.08@4.08@fixup)
 #  - ld-warning
 BRANCHES+=(ld-warning ld-warning-5.0@fixup)
 #  - runtime-id
