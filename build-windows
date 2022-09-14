@@ -1,0 +1,125 @@
+#!/bin/bash
+
+script="$(realpath "$0")"
+dir="$(dirname $0)/ocaml"
+prefix="$(realpath $(dirname "$0"))"/local
+
+if [[ ! -d $dir ]]; then
+  echo "Expect OCaml clone in $dir" >&2
+  exit 1
+fi
+
+cd "$dir"
+
+function failed
+{
+  echo
+  cat _log
+  rm _log
+  echo "$1: $2 failed!"
+  exit 1
+}
+
+function build
+{
+  if [[ -z $2 ]]; then
+    printf "Building OCaml $1... "
+    host_arg=''
+    prefix="$prefix/ocaml-$1"
+    label="OCaml $1"
+  else
+    printf "Build OCaml $1 for $2..."
+    host_arg="--host=$2"
+    prefix="$prefix/ocaml-$1-$2"
+    label="OCaml $1 ($2)"
+  fi
+  if ! ./configure --prefix "$prefix" $host_arg --enable-warn-error --enable-relative --enable-runtime-search=always > _log 2>&1; then
+    failed "$label" 'configure'
+  fi
+  if ! make -j > _log 2>&1; then
+    failed "$label" 'build'
+  fi
+  if ! make install > _log 2>&1; then
+    failed "$label" 'install'
+  fi
+  rm -f _log
+  echo "done"
+}
+
+function msvs-detect
+{
+  if [[ -x ../msvs-tools/msvs-detect ]] ; then
+    eval $(../msvs-tools/msvs-detect --arch=$1)
+    export PATH="$MSVS_PATH$PATH"
+    export INCLUDE="$MSVS_INC$INCLUDE"
+    export LIB="$MSVS_LIB$LIB"
+  fi
+}
+
+if [[ $# -gt 0 ]]; then
+  if [[ -z $2 ]]; then
+    build_dir="../builds/build-$1"
+  else
+    build_dir="../builds/build-$1-$2"
+  fi
+  if [[ ! -d $build_dir ]]; then
+    echo "$(realpath "$build_dir") not found?!" >&2
+    exit 1
+  fi
+  # Could cache these at the start so they can be eval'd once by each call
+  case "$2" in
+    i686-pc-windows) msvs-detect x86;;
+    x86_64-pc-windows) msvs-detect x64;;
+  esac
+  cd "$build_dir"
+  build "$1" "$2"
+  exit 0
+fi
+
+# XXX This should be enhanced to test for the _actual_ prefix for each compiler
+#if [[ -d $prefix ]]; then
+#  echo "$prefix exists - please remove before running" >&2
+#  exit 1
+#fi
+
+if [[ -n "$(git status --porcelain | grep -Fxv ' M flexdll')" ]]; then
+  echo 'The working tree is not clean' >&2
+  exit 1
+fi
+
+BACKPORTS=(5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08)
+
+BUILDS=()
+
+problem=0
+for v in "${BACKPORTS[@]}"; do
+  for arch in i686 x86_64; do
+    for port in w64-mingw32 pc-windows; do
+      if [[ $v = '5.0' && $port = 'pc-windows' ]]; then
+        continue
+      fi
+      build_dir="../builds/build-$v-$arch-$port"
+      BUILDS+=("$v $arch-$port")
+      if [[ ! -d $build_dir ]]; then
+        git worktree add --detach "$build_dir" backport-$v
+      else
+        rm -f "$build_dir/_log"
+        if [[ -n "$(git -C "$build_dir" status --porcelain | grep -Fxv ' M flexdll')" ]]; then
+          echo "Working tree $(realpath "$build_dir") is not clean" >&2
+          problem=1
+        else
+          git -C "$build_dir" clean -dfx &> /dev/null
+          git -C "$build_dir/flexdll" clean -dfx &> /dev/null
+          git -C "$build_dir" checkout --detach backport-$v &> /dev/null
+        fi
+      fi
+      git -C "$build_dir" submodule update --init flexdll
+      git -C "$build_dir/flexdll" checkout 0.41
+    done
+  done
+done
+if ((problem)); then
+  exit 1
+fi
+
+printf "%s\n" "${BUILDS[@]}" | parallel --colsep ' ' "$script" {1} {2}
