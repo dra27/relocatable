@@ -17,26 +17,38 @@
 
 ROOTDIR = .
 
+# The configure and *clean targets can all be run without running ./configure
+# first.
+# If no goals were specified (i.e. `make`), add defaultentry (since it requires
+# ./configure to be run)
+CAN_BE_UNCONFIGURED := $(strip \
+  $(filter-out partialclean clean distclean configure, \
+	$(if $(MAKECMDGOALS),$(MAKECMDGOALS),defaultentry)))
+
+ifeq "$(CAN_BE_UNCONFIGURED)" ""
 -include Makefile.config
 -include Makefile.common
+else
+include Makefile.config
+include Makefile.common
+endif
 
 .PHONY: defaultentry
+<<<<<<<
 ifeq "$(NATIVE_COMPILER)" "true"
+=======
+ifneq "$(ARCH)" "none"
+>>>>>>>
 defaultentry: world.opt
 else
 defaultentry: world
 endif
 
 MKDIR=mkdir -p
-ifeq "$(UNIX_OR_WIN32)" "win32"
-LN = cp
-else
-LN = ln -sf
-endif
 
 include stdlib/StdlibModules
 
-CAMLC=$(BOOT_OCAMLC) -g -nostdlib -I boot -use-prims runtime/primitives
+CAMLC=$(BOOT_OCAMLC) -g -nostdlib -I boot
 CAMLOPT=$(CAMLRUN) ./ocamlopt -g -nostdlib -I stdlib -I otherlibs/dynlink
 ARCHES=amd64 i386 arm arm64 power s390x
 INCLUDES=-I utils -I parsing -I typing -I bytecomp -I file_formats \
@@ -49,6 +61,7 @@ COMPFLAGS=-strict-sequence -principal -absname -w +a-4-9-40-41-42-44-45-48-66 \
 	  -warn-error A \
           -bin-annot -safe-string -strict-formats $(INCLUDES)
 LINKFLAGS=
+BYTELINK_FLAGS=-use-prims runtime/primitives
 
 ifeq "$(strip $(NATDYNLINKOPTS))" ""
 OCAML_NATDYNLINKOPTS=
@@ -320,6 +333,9 @@ utils/config.ml: utils/config.mlp Makefile.config utils/Makefile
 
 .PHONY: reconfigure
 reconfigure:
+<<<<<<<
+	./configure $(CONFIGURE_ARGS)
+=======
 	ac_read_git_config=true ./configure $(CONFIGURE_ARGS)
 
 utils/domainstate.ml: utils/domainstate.ml.c runtime/caml/domain_state.tbl
@@ -327,6 +343,7 @@ utils/domainstate.ml: utils/domainstate.ml.c runtime/caml/domain_state.tbl
 
 utils/domainstate.mli: utils/domainstate.mli.c runtime/caml/domain_state.tbl
 	$(CPP) -I runtime/caml $< > $@
+>>>>>>>
 
 .PHONY: partialclean
 partialclean::
@@ -334,6 +351,19 @@ partialclean::
 
 .PHONY: beforedepend
 beforedepend:: utils/config.ml utils/domainstate.ml utils/domainstate.mli
+
+USE_RUNTIME_PRIMS = -use-prims ../runtime/primitives
+USE_STDLIB = -nostdlib -I ../stdlib
+
+FLEXDLL_OBJECTS = \
+  flexdll_$(FLEXDLL_CHAIN).$(O) flexdll_initer_$(FLEXDLL_CHAIN).$(O)
+FLEXLINK_BUILD_ENV = \
+  MSVC_DETECT=0 OCAML_CONFIG_FILE=../Makefile.config \
+  CHAINS=$(FLEXDLL_CHAIN) ROOTDIR=..
+
+boot/ocamlruns$(EXE):
+	$(MAKE) -C runtime ocamlruns$(EXE)
+	cp runtime/ocamlruns$(EXE) boot/ocamlruns$(EXE)
 
 USE_RUNTIME_PRIMS = -use-prims ../runtime/primitives
 USE_STDLIB = -nostdlib -I ../stdlib
@@ -459,7 +489,11 @@ endif
 	$(MAKE) ocamllex.opt ocamltoolsopt ocamltoolsopt.opt $(OCAMLDOC_OPT) \
 	  $(OCAMLTEST_OPT)
 ifeq "$(WITH_OCAMLDOC)-$(STDLIB_MANPAGES)" "ocamldoc-true"
+<<<<<<<
+	$(MAKE) -C ocamldoc manpages
+=======
 	$(MAKE) manpages
+>>>>>>>
 endif
 
 # Core bootstrapping cycle
@@ -490,7 +524,11 @@ all: coreall
 	$(MAKE) otherlibraries $(WITH_DEBUGGER) $(WITH_OCAMLDOC) \
          $(WITH_OCAMLTEST)
 ifeq "$(WITH_OCAMLDOC)-$(STDLIB_MANPAGES)" "ocamldoc-true"
+<<<<<<<
+	$(MAKE) -C ocamldoc manpages
+=======
 	$(MAKE) manpages
+>>>>>>>
 endif
 
 # Bootstrap and rebuild the whole system.
@@ -843,7 +881,7 @@ partialclean::
 	rm -f compilerlibs/ocamlbytecomp.cma
 
 ocamlc: compilerlibs/ocamlcommon.cma compilerlibs/ocamlbytecomp.cma $(BYTESTART)
-	$(CAMLC) $(LINKFLAGS) -compat-32 -o $@ $^
+	$(CAMLC) $(LINKFLAGS) $(BYTELINK_FLAGS) -compat-32 -o $@ $^
 
 partialclean::
 	rm -rf ocamlc
@@ -858,7 +896,7 @@ partialclean::
 
 ocamlopt: compilerlibs/ocamlcommon.cma compilerlibs/ocamloptcomp.cma \
           $(OPTSTART)
-	$(CAMLC) $(LINKFLAGS) -o $@ $^
+	$(CAMLC) $(LINKFLAGS) $(BYTELINK_FLAGS) -o $@ $^
 
 partialclean::
 	rm -f ocamlopt
@@ -877,7 +915,7 @@ ocaml_dependencies := \
 
 .INTERMEDIATE: ocaml.tmp
 ocaml.tmp: $(ocaml_dependencies)
-	$(CAMLC) $(LINKFLAGS) -linkall -o $@ $^
+	$(CAMLC) $(LINKFLAGS) $(BYTELINK_FLAGS) -linkall -o $@ $^
 
 ocaml: expunge ocaml.tmp
 	- $(CAMLRUN) $^ $@ $(PERVASIVES)
@@ -935,7 +973,8 @@ partialclean::
 
 ocamlc.opt: compilerlibs/ocamlcommon.cmxa compilerlibs/ocamlbytecomp.cmxa \
             $(BYTESTART:.cmo=.cmx)
-	$(CAMLOPT_CMD) $(LINKFLAGS) -o $@ $^ -cclib "$(BYTECCLIBS)"
+	$(CAMLOPT_CMD) $(LINKFLAGS) $(DOTOPT_LINKFLAGS) \
+	               -o $@ $^ -cclib "$(BYTECCLIBS)"
 
 partialclean::
 	rm -f ocamlc.opt
@@ -950,7 +989,7 @@ partialclean::
 
 ocamlopt.opt: compilerlibs/ocamlcommon.cmxa compilerlibs/ocamloptcomp.cmxa \
               $(OPTSTART:.cmo=.cmx)
-	$(CAMLOPT_CMD) $(LINKFLAGS) -o $@ $^
+	$(CAMLOPT_CMD) $(LINKFLAGS) $(DOTOPT_LINKFLAGS) -o $@ $^
 
 partialclean::
 	rm -f ocamlopt.opt
@@ -1010,7 +1049,7 @@ tools/cvt_emit: tools/cvt_emit.mll
 
 expunge: compilerlibs/ocamlcommon.cma compilerlibs/ocamlbytecomp.cma \
          toplevel/expunge.cmo
-	$(CAMLC) $(LINKFLAGS) -o $@ $^
+	$(CAMLC) $(LINKFLAGS) $(BYTELINK_FLAGS) -o $@ $^
 
 partialclean::
 	rm -f expunge
@@ -1322,7 +1361,7 @@ ocamlnat$(EXE): compilerlibs/ocamlcommon.cmxa compilerlibs/ocamloptcomp.cmxa \
     otherlibs/dynlink/dynlink.cmxa \
     compilerlibs/ocamlopttoplevel.cmxa \
     $(OPTTOPLEVELSTART:.cmo=.cmx)
-	$(CAMLOPT_CMD) $(LINKFLAGS) -linkall -o $@ $^
+	$(CAMLOPT_CMD) $(LINKFLAGS) $(DOTOPT_LINKFLAGS) -linkall -o $@ $^
 
 partialclean::
 	rm -f ocamlnat ocamlnat.exe
@@ -1383,6 +1422,8 @@ depend: beforedepend
 
 .PHONY: distclean
 distclean: clean
+	$(MAKE) -C stdlib distclean
+	rm -f utils/config.mlp
 	rm -f boot/ocamlrun boot/ocamlrun.exe boot/camlheader \
 	boot/ocamlruns boot/ocamlruns.exe \
 	boot/flexlink.byte boot/flexlink.byte.exe \
@@ -1398,7 +1439,10 @@ distclean: clean
 
 include .depend
 
-Makefile.config Makefile.common:
+ifneq "$(strip $(CAN_BE_UNCONFIGURED))" ""
+Makefile.config Makefile.common: config.status
+
+config.status:
 	@echo "Please refer to the installation instructions:"
 	@echo "- In file INSTALL for Unix systems."
 	@echo "- In file README.win32.adoc for Windows systems."
@@ -1409,3 +1453,4 @@ Makefile.config Makefile.common:
 	@echo "	make install"
 	@echo "should work."
 	@false
+endif

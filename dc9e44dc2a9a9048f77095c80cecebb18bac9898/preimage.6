@@ -17,8 +17,21 @@
 
 ROOTDIR = .
 
+# The configure and *clean targets can all be run without running ./configure
+# first.
+# If no goals were specified (i.e. `make`), add defaultentry (since it requires
+# ./configure to be run)
+CAN_BE_UNCONFIGURED := $(strip \
+  $(filter-out partialclean clean distclean configure, \
+	$(if $(MAKECMDGOALS),$(MAKECMDGOALS),defaultentry)))
+
+ifeq "$(CAN_BE_UNCONFIGURED)" ""
 -include Makefile.config
 -include Makefile.common
+else
+include Makefile.config
+include Makefile.common
+endif
 
 .PHONY: defaultentry
 ifeq "$(NATIVE_COMPILER)" "true"
@@ -327,6 +340,9 @@ utils/domainstate.ml: utils/domainstate.ml.c runtime/caml/domain_state.tbl
 
 utils/domainstate.mli: utils/domainstate.mli.c runtime/caml/domain_state.tbl
 	$(CPP) -I runtime/caml $< > $@
+
+configure: configure.ac aclocal.m4 VERSION tools/autogen
+	tools/autogen
 
 .PHONY: partialclean
 partialclean::
@@ -1306,8 +1322,7 @@ endif
 compilerlibs/ocamlopttoplevel.cmxa: $(OPTTOPLEVEL:.cmo=.cmx)
 	$(CAMLOPT) -a -o $@ $^
 partialclean::
-	rm -f compilerlibs/ocamlopttoplevel.cmxa \
-        compilerlibs/ocamlopttoplevel.a compilerlibs/ocamlopttoplevel.lib
+	rm -f compilerlibs/ocamlopttoplevel.cmxa
 
 # When the native toplevel executable has an extension (e.g. ".exe"),
 # provide a phony 'ocamlnat' synonym
@@ -1398,7 +1413,14 @@ distclean: clean
 
 include .depend
 
-Makefile.config Makefile.common:
+<<<<<<<
+=======
+
+>>>>>>>
+ifneq "$(strip $(CAN_BE_UNCONFIGURED))" ""
+Makefile.config Makefile.common: config.status
+
+config.status:
 	@echo "Please refer to the installation instructions:"
 	@echo "- In file INSTALL for Unix systems."
 	@echo "- In file README.win32.adoc for Windows systems."
@@ -1409,3 +1431,4 @@ Makefile.config Makefile.common:
 	@echo "	make install"
 	@echo "should work."
 	@false
+endif
