@@ -178,6 +178,17 @@ if [[ ! -e $state_file ]]; then
     exit 1
   fi
 
+  if [[ -e "$(git rev-parse --git-dir)/REBASE_HEAD" ]]; then
+    echo 'A rebase appears to be in progress?' >&2
+    exit 1
+  elif [[ -e "$(git rev-parse --git-dir)/CHERRY_PICK_HEAD" ]]; then
+    echo 'A cherry-pick appears to be in progress' >&2
+    exit 1
+  elif [[ -e "$(git rev-parse --git-dir)/MERGE_HEAD" ]]; then
+    echo 'A merge appears to be in progress' >&2
+    exit 1
+  fi
+
   git clean -dfX &> /dev/null
 
   # Calculate the menu. First, determine the initial commit list from the
