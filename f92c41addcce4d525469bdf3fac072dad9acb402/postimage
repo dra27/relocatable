@@ -33,6 +33,7 @@
         .globl name; \
         .align FUNCTION_ALIGN; \
         name:
+#define ENDOBJECT(name)
 
 #elif defined(SYS_mingw64) || defined(SYS_cygwin)
 

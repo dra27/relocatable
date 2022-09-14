@@ -1306,7 +1306,8 @@ endif
 compilerlibs/ocamlopttoplevel.cmxa: $(OPTTOPLEVEL:.cmo=.cmx)
 	$(CAMLOPT) -a -o $@ $^
 partialclean::
-	rm -f compilerlibs/ocamlopttoplevel.cmxa
+	rm -f compilerlibs/ocamlopttoplevel.cmxa \
+        compilerlibs/ocamlopttoplevel.a compilerlibs/ocamlopttoplevel.lib
 
 # When the native toplevel executable has an extension (e.g. ".exe"),
 # provide a phony 'ocamlnat' synonym
