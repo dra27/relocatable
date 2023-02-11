@@ -779,3 +779,7 @@ if [[ ${#BOOTSTRAPS[@]} -gt 0 ]]; then
     echo " - $msg"
   done
 fi
+
+if ((aborting)); then
+  exit 2
+fi
