@@ -15,9 +15,10 @@ if ! git rev-parse --verify upstream/trunk &> /dev/null; then
   exit 1
 fi
 
-# fix-autogen appears first, since it affects any commit touching configure
-# It doesn't need to go in branches, however.
-BRANCHES=(fix-autogen@4.08)
+# fix-autogen appears first, since it affects any commit touching configure.
+# Part of #10254 allows overriding the autoconf command in autogen.
+# They don't need to go in branches, however.
+BRANCHES=(fix-autogen@4.08 check-configure@4.12)
 TARGETS=()
 COMMANDS=()
 
@@ -468,7 +469,10 @@ function reconfigure
       autogen=./autogen
     fi
     rm -f configure
-    if docker run --rm -it -v $PWD:/home/opam/ocaml -w /home/opam/ocaml autogen $autogen; then
+    if [[ $(sed -ne 's/^AC_PREREQ(\[\(.*\)\])$/\1/p' configure.ac) =~ ^(2.69)?$ ]]; then
+      autogen="$autogen autoconf2.69"
+    fi
+    if $autogen; then
       git add -- configure
     else
       abort
