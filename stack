@@ -145,7 +145,7 @@ BRANCHES+=(runtime-suffixing unified-runtime-suffixing@trunk@fixup unified-runti
 #  - camlheader-search
 BRANCHES+=(camlheader-search unified-camlheader-search@fixup~1 unified-camlheader-search-4.14@fixup~1 unified-camlheader-search-4.13@fixup~1 unified-camlheader-search-4.12@fixup~1 unified-camlheader-search-4.11@fixup~1 unified-camlheader-search-4.10@fixup~1)
 
-TARGETS=(5.0.0-alpha1 4.14.0 4.13.1 4.12.1 4.11.2 4.10.2 4.09.1 4.08.1)
+TARGETS=(5.0.0-alpha1 4.14.1 4.13.1 4.12.1 4.11.2 4.10.2 4.09.1 4.08.1)
 
 # Check the branches all exist and collect the commits to stack
 for branch in "${BRANCHES[@]}"; do
