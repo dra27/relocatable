@@ -635,6 +635,7 @@ function commit
     rm -f _log
     git rebase --committer-date-is-author-date HEAD~1 &> /dev/null
     head="$(git rev-parse --short HEAD)"
+    #echo "Committed HEAD $head"
     if [[ -n $2 ]]; then
       eval "com=\"$2\""
       COMMITS+=("$com")
