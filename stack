@@ -145,7 +145,7 @@ BRANCHES+=(runtime-suffixing unified-runtime-suffixing@trunk@fixup unified-runti
 #  - camlheader-search
 BRANCHES+=(camlheader-search unified-camlheader-search@fixup~1 unified-camlheader-search-4.14@fixup~1 unified-camlheader-search-4.13@fixup~1 unified-camlheader-search-4.12@fixup~1 unified-camlheader-search-4.11@fixup~1 unified-camlheader-search-4.10@fixup~1)
 
-TARGETS=(5.0.0 4.14.1 4.13.1 4.12.1 4.11.2 4.10.2 4.09.1 4.08.1)
+TARGETS=(5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08)
 
 # Check the branches all exist and collect the commits to stack
 for branch in "${BRANCHES[@]}"; do
@@ -162,7 +162,7 @@ done
 
 fault=0
 for root in "${TARGETS[@]}"; do
-  if ! git rev-parse --verify $root &> /dev/null; then
+  if ! git rev-parse --verify relocatable-base-$root &> /dev/null; then
     echo "Target $root not found" >&2
     fault=1
   fi
@@ -246,7 +246,7 @@ if [[ ! -e $state_file ]]; then
 
   # Now generate commands for each target branch
   for root in "${TARGETS[@]}"; do
-    COMMANDS+=("branch $root")
+    COMMANDS+=("branch relocatable-base-$root")
   done
 else
   if [[ -n "$(git ls-files --exclude-standard --others)" ]]; then
@@ -692,7 +692,7 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
         fi
       fi;;
     branch)
-      target_branch="backport-${arg%.*}"
+      target_branch="backport-${arg#relocatable-base-}"
       echo "Creating branch $target_branch"
       target="$arg"
       WORKING=()
