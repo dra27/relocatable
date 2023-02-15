@@ -20,6 +20,15 @@ include $(ROOTDIR)/Makefile.best_binaries
 
 OCAMLYACCFLAGS = --strict -v
 
+<<<<<<<
+=======
+ifeq "$(SUPPORTS_SHARED_LIBRARIES)" "true"
+  BYTELINK_FLAGS =
+else
+  BYTELINK_FLAGS = -custom -I $(ROOTDIR)/runtime $(SET_RELATIVE_STDLIB)
+endif
+
+>>>>>>>
 OCAMLC = $(BEST_OCAMLC) $(STDLIBFLAGS)
 OCAMLOPT = $(BEST_OCAMLOPT) $(STDLIBFLAGS)
 
@@ -53,7 +62,11 @@ endif
 
 
 INCLUDE_DIRS = $(addprefix $(ROOTDIR)/,\
-  utils parsing typing driver bytecomp toplevel)
+<<<<<<<
+  runtime utils parsing typing driver bytecomp toplevel)
+=======
+  utils parsing typing driver bytecomp toplevel) generators
+>>>>>>>
 INCLUDES_DEP = $(addprefix -I ,$(INCLUDE_DIRS))
 INCLUDES_NODEP = $(addprefix -I $(ROOTDIR)/,\
   compilerlibs otherlibs/str otherlibs/dynlink \
