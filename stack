@@ -163,8 +163,12 @@ done
 fault=0
 for root in "${TARGETS[@]}"; do
   if ! git rev-parse --verify relocatable-base-$root &> /dev/null; then
-    echo "Target $root not found" >&2
-    fault=1
+    if ! git rev-parse --verify origin/relocatable-base-$root &> /dev/null; then
+      echo "Target $root not found" >&2
+      fault=1
+    else
+      git branch relocatable-base-$root origin/relocatable-base-$root
+    fi
   fi
 done
 if ((fault)); then
