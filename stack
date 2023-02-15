@@ -94,7 +94,7 @@ BRANCHES+=(disable-ocamltest@4.10)
 BRANCHES+=(win32-safe-string@4.08 _integral_max_bits@4.11 declaration-after-statement@4.14 warn-error@4.11 make-default-target@4.09 autoconf-tweak@4.10 autoconf-tweak-4.09@fixup~1 runtime_name_escape@4.10)
 
 # - CI tweaks and backports
-BRANCHES+=(improve-depend-from-scratch@4.09 ocamltest@5.0 github-attributes@4.11 ocamltest-4.14@4.14 ocamltest-4.12@4.12 ocamltest-4.11@4.11 ocamltest-tweak@4.11 ocamltest-4.09@fixup~2 fix-test-4229@4.09 ocamltest-4.08@4.08 faster-appveyor@4.10)
+BRANCHES+=(improve-depend-from-scratch@4.09 ocamltest 32bit-gha-test@5.0 github-attributes@4.11 ocamltest-4.14@4.14 ocamltest-4.12@4.12 ocamltest-4.11@4.11 ocamltest-tweak@4.11 ocamltest-4.09@fixup~2 fix-test-4229@4.09 ocamltest-4.08@4.08 faster-appveyor@4.10)
 
 # This slightly simplifies the patch rebasing infrastructure, as it stops
 # configure from being completely rejected
