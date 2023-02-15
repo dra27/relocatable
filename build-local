@@ -56,7 +56,7 @@ if [[ -n "$(git status --porcelain)" ]]; then
   exit 1
 fi
 
-BACKPORTS=(5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08)
+BACKPORTS=(trunk 5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08)
 
 problem=0
 for v in "${BACKPORTS[@]}"; do
