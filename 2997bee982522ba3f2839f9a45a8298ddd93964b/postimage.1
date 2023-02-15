@@ -65,16 +65,13 @@ EOF
 }
 
 Build () {
-<<<<<<<
   if [ "$(uname)" = 'Darwin' ]; then
     script -q build.log $MAKE_WARN world.opt
+    script -qa build.log $MAKE_WARN ocamlnat
   else
     script --return --command "$MAKE_WARN world.opt" build.log
+    script --return --append --command "$MAKE_WARN ocamlnat" build.log
   fi
-=======
-  script --return --command "$MAKE_WARN world.opt" build.log
-  script --return --append --command "$MAKE_WARN ocamlnat" build.log
->>>>>>>
   echo Ensuring that all names are prefixed in the runtime
   ./tools/check-symbol-names runtime/*.a
 }

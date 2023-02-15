@@ -18,12 +18,16 @@ jobs:
         make -C testsuite USE_RUNTIME=d all
   i386-static:
     runs-on: ubuntu-latest
+    container:
+      image: i386/ubuntu:18.04
+      options: --platform linux/i386 --user root
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
     - name: Packages
-      run: |
-        sudo apt-get update -y && sudo apt-get install -y gcc-multilib gfortran-multilib
+      run:
+        apt-get update -y && apt-get install -y git gcc make parallel gfortran
+    - name: Checkout
+      # See https://github.com/actions/checkout/issues/334
+      uses: actions/checkout@v1
     - name: configure tree
       run: |
         XARCH=i386 CONFIG_ARG='--disable-stdlib-manpages --disable-shared --enable-cmm-invariants' bash -xe tools/ci/actions/runner.sh configure

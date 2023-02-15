@@ -65,16 +65,7 @@ EOF
 }
 
 Build () {
-<<<<<<<
-  if [ "$(uname)" = 'Darwin' ]; then
-    script -q build.log $MAKE_WARN world.opt
-  else
-    script --return --command "$MAKE_WARN world.opt" build.log
-  fi
-=======
   script --return --command "$MAKE_WARN world.opt" build.log
-  script --return --append --command "$MAKE_WARN ocamlnat" build.log
->>>>>>>
   echo Ensuring that all names are prefixed in the runtime
   ./tools/check-symbol-names runtime/*.a
 }
@@ -82,10 +73,9 @@ Build () {
 Test () {
   cd testsuite
   echo Running the testsuite with the normal runtime
-  $MAKE parallel
+  $MAKE all
   echo Running the testsuite with the debug runtime
-  $MAKE USE_RUNTIME='d' OCAMLTESTDIR='$(BASEDIR_HOST)/$(DIR)/_ocamltestd' \
-        TESTLOG=_logd parallel
+  $MAKE USE_RUNTIME='d' OCAMLTESTDIR="$(pwd)/_ocamltestd" TESTLOG=_logd all
   cd ..
 }
 
