@@ -124,16 +124,16 @@ BRANCHES+=(ext_exe@4.11 shebang@4.09 c89_headers@4.10 rename_T_macro@4.08 use-ru
 #  - misc-win-fixes
 #  - windows-ln
 #  - one-camlheader
-BRANCHES+=(misc-win-fixes windows-ln one-camlheader one-camlheader-4.13@fixup~1)
+BRANCHES+=(misc-win-fixes windows-ln windows-ln-5.0@fixup windows-ln-4.11@fixup one-camlheader one-camlheader-4.13@fixup~1)
 #  - target-bindir
-BRANCHES+=(target-bindir unified-target-bindir@fixup)
+BRANCHES+=(target-bindir target-bindir-5.0@fixup)
 #  - ld.conf-CRLF
 #  - ld.conf-search
 BRANCHES+=(ld.conf-CRLF ld.conf-search)
 #  - ld.conf-relative
 BRANCHES+=(ld.conf-relative unified-ld.conf-relative@4.14)
 #  - compiled-primitives
-BRANCHES+=(compiled-primitives compiled-primitives-4.12@fixup)
+BRANCHES+=(compiled-primitives compiled-primitives-5.0@fixup compiled-primitives-4.12@fixup)
 #  - enable-relative
 BRANCHES+=(enable-relative unified-enable-relative@fixup~1 unified-enable-relative-5.0@fixup~1 unified-enable-relative-4.x@4.14@fixup unified-enable-relative-4.11@4.11@fixup cmmgen-4.09@fixup~1 unified-enable-relative-4.08@4.08@fixup)
 #  - ld-warning
@@ -141,9 +141,9 @@ BRANCHES+=(ld-warning ld-warning-5.0@fixup)
 #  - runtime-id
 BRANCHES+=(runtime-id runtime-id-5.0@fixup runtime-id-4.14@fixup runtime-id-4.13@fixup runtime-id-4.12@fixup runtime-id-4.11@fixup runtime-id-4.10@fixup runtime-id-4.09@fixup runtime-id-4.08@fixup)
 #  - runtime-suffixing
-BRANCHES+=(runtime-suffixing unified-runtime-suffixing@trunk@fixup unified-runtime-suffixing-4.14@4.14@fixup unified-runtime-suffixing-4.12@fixup unified-runtime-suffixing-4.11@fixup~1)
+BRANCHES+=(runtime-suffixing unified-runtime-suffixing@trunk@fixup unified-runtime-suffixing-5.0@5.0@fixup unified-runtime-suffixing-4.14@4.14@fixup unified-runtime-suffixing-4.12@fixup unified-runtime-suffixing-4.11@fixup~1)
 #  - camlheader-search
-BRANCHES+=(camlheader-search unified-camlheader-search@fixup~1 unified-camlheader-search-4.14@fixup~1 unified-camlheader-search-4.13@fixup~1 unified-camlheader-search-4.12@fixup~1 unified-camlheader-search-4.11@fixup~1 unified-camlheader-search-4.10@fixup~1)
+BRANCHES+=(camlheader-search unified-camlheader-search@fixup~1 unified-camlheader-search-5.0@fixup~1 unified-camlheader-search-4.14@fixup~1 unified-camlheader-search-4.13@fixup~1 unified-camlheader-search-4.12@fixup~1 unified-camlheader-search-4.11@fixup~1 unified-camlheader-search-4.10@fixup~1)
 
 TARGETS=(trunk 5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08)
 
