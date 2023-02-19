@@ -666,6 +666,17 @@ function commit
   fi
 }
 
+# Useful loop for identifying branches needing rebasing
+#our_base="$(git rev-parse relocatable-base-trunk)"
+#our_base='d98fd806573088994b0ab60de032d7d54221488f'
+#for entry in "${BRANCHES[@]}"; do
+#  base="$(merge-base ${entry%%@*} upstream/trunk)"
+#  if [[ $base = $our_base ]]; then
+#    echo "$entry: $base"
+#  fi
+#done
+#exit 0
+
 BOOTSTRAP=()
 aborting=0
 while [[ ${#COMMANDS[@]} -gt 0 ]]; do
