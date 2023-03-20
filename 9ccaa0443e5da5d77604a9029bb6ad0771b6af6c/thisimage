@@ -44,19 +44,9 @@ all: stdlib.cma std_exit.cmo camlheader target_camlheader
 allopt: stdlib.cmxa std_exit.cmx
 opt.opt: allopt
 
-.PHONY: install
-# Ensure any pre-4.13 lowercased artefacts are removed on macOS and Windows
-install::
-	stale="$(filter-out $(notdir $(wildcard stdlib__*.cmi)), \
-         $(notdir $(wildcard $(INSTALL_LIBDIR)/stdlib__*.cmi)))"; \
-  if test -n "$$stale" ; then \
-    echo "$(INSTALL_LIBDIR) contains stale stdlib artefacts"; \
-    echo "Please rm $(INSTALL_LIBDIR)/stdlib__*.cm* and re-run make install"; \
-    exit 1; \
-  fi
-
 INSTALL_STDLIB_META_DIR=$(DESTDIR)$(LIBDIR)/stdlib
 
+.PHONY: install
 install::
 	$(INSTALL_DATA) \
 	  stdlib.cma std_exit.cmo *.cmi "$(INSTALL_LIBDIR)"
@@ -73,17 +63,7 @@ endif
 installopt: installopt-default
 
 .PHONY: installopt-default
-# Ensure any pre-4.13 lowercased artefacts are removed on macOS and Windows
-installopt-default::
-	stale="$(filter-out $(notdir $(wildcard stdlib__*.cmx)), \
-         $(notdir $(wildcard $(INSTALL_LIBDIR)/stdlib__*.cmx)))"; \
-  if test -n "$$stale" ; then \
-    echo "$(INSTALL_LIBDIR) contains stale stdlib artefacts"; \
-    echo "Please rm $(INSTALL_LIBDIR)/stdlib__*.cmx and re-run make install"; \
-    exit 1; \
-  fi
-
-installopt-default::
+installopt-default:
 	$(INSTALL_DATA) \
 	  stdlib.cmxa stdlib.$(A) std_exit.$(O) *.cmx \
 	  "$(INSTALL_LIBDIR)"
@@ -113,7 +93,7 @@ CAMLHEADERS =\
 ifeq "$(SHEBANGSCRIPTS)" "true"
 
 %header: %header.shebang
-	sed -e 's/^ *//;/^#[^!]/d;/^$$/d' $< > $@
+	$(V_GEN)sed -e 's/^ *//;/^#[^!]/d;/^$$/d' $< > $@
 
 else # Shebang scripts not supported
 
@@ -121,9 +101,9 @@ else # Shebang scripts not supported
 
 # $@.exe is deleted to ensure no Cygwin .exe mangling takes place
 %header: %header.shebang tmpheader.exe
-	rm -f $@.exe
-	sed -ne '/^\#!/s/^\#!/!\#/p' $< > $@
-	cat tmpheader.exe >> $@
+	@rm -f $@.exe
+	$(V_GEN)sed -ne '/^\#!/s/^\#!/!\#/p' $< > $@
+	@cat tmpheader.exe >> $@
 
 .INTERMEDIATE: tmpheader.exe
 tmpheader.exe: $(HEADERPROGRAM).$(O)
@@ -134,16 +114,16 @@ ifneq "$(UNIX_OR_WIN32)" "win32"
 endif
 
 $(HEADERPROGRAM).$(O): $(HEADERPROGRAM).c
-	$(CC) -c $(OC_CFLAGS) $(CFLAGS) $(OC_CPPFLAGS) $(CPPFLAGS) \
+	$(V_CC)$(CC) -c $(OC_CFLAGS) $(CFLAGS) $(OC_CPPFLAGS) $(CPPFLAGS) \
 	  $(OUTPUTOBJ)$@ $^
 
 endif # ifeq "$(SHEBANGSCRIPTS)" "true"
 
 stdlib.cma: $(OBJS)
-	$(CAMLC) -a -o $@ $^
+	$(V_LINKC)$(CAMLC) -a -o $@ $^
 
 stdlib.cmxa: $(OBJS:.cmo=.cmx)
-	$(CAMLOPT) -a -o $@ $^
+	$(V_LINKOPT)$(CAMLOPT) -a -o $@ $^
 
 .PHONY: distclean
 distclean: clean
@@ -156,30 +136,30 @@ clean::
 export AWK
 
 %.cmi: %.mli
-	$(CAMLC) $(COMPFLAGS) $(shell ./Compflags $@) -c $<
+	$(V_OCAMLC)$(CAMLC) $(COMPFLAGS) $(shell ./Compflags $@) -c $<
 
 # The dependency on the .mli file is in .depend (since stdlib__Foo.cmi
 # depends on stdlib__foo.mli)
 stdlib__%.cmi:
-	$(CAMLC) $(COMPFLAGS) $(shell ./Compflags $@) \
+	$(V_OCAMLC)$(CAMLC) $(COMPFLAGS) $(shell ./Compflags $@) \
 	         -o $@ -c $(filter %.mli, $^)
 
 %.cmo: %.ml
-	$(CAMLC) $(COMPFLAGS) $(shell ./Compflags $@) -c $<
+	$(V_OCAMLC)$(CAMLC) $(COMPFLAGS) $(shell ./Compflags $@) -c $<
 
 # The dependency on the .ml file is in .depend (since stdlib__Foo.cmo
 # depends on stdlib__foo.ml)
 stdlib__%.cmo:
-	$(CAMLC) $(COMPFLAGS) $(shell ./Compflags $@) \
+	$(V_OCAMLC)$(CAMLC) $(COMPFLAGS) $(shell ./Compflags $@) \
 	         -o $@ -c $(filter %.ml, $^)
 
 %.cmx: %.ml
-	$(CAMLOPT) $(COMPFLAGS) $(OPTCOMPFLAGS) $(shell ./Compflags $@) -c $<
+	$(V_OCAMLOPT)$(CAMLOPT) $(COMPFLAGS) $(OPTCOMPFLAGS) $(shell ./Compflags $@) -c $<
 
 # The dependency on the .ml file is in .depend (since stdlib__Foo.cmx
 # depends on stdlib__foo.ml)
 stdlib__%.cmx:
-	$(CAMLOPT) $(COMPFLAGS) $(OPTCOMPFLAGS) $(shell ./Compflags $@) \
+	$(V_OCAMLOPT)$(CAMLOPT) $(COMPFLAGS) $(OPTCOMPFLAGS) $(shell ./Compflags $@) \
 	           -o $@ -c $(filter %.ml, $^)
 
 # Dependencies on the compiler
@@ -207,18 +187,14 @@ GNUISH_SED = \
   $(if $(filter X,$(shell echo x | $(SED) -E -e 's/./\u&/' 2>/dev/null)),\
        $(SED),$(error GNU sed is needed for make depend))
 
-.INTERMEDIATE: .depend.tmp
-
-.depend.tmp:
-	$(OCAMLDEP_CMD) $(filter-out stdlib.%,$(wildcard *.mli *.ml)) > $@
-	$(OCAMLDEP_CMD) -pp "$(AWK) -f ./remove_module_aliases.awk" \
-	  stdlib.ml stdlib.mli >> $@
-
 .PHONY: depend
-depend: .depend
-
-.depend: .depend.tmp
+depend:
+	$(V_OCAMLDEP){ \
+	  $(OCAMLDEP_CMD) $(filter-out stdlib.%,$(wildcard *.mli *.ml)); \
+	  $(OCAMLDEP_CMD) -pp "$(AWK) -f ./remove_module_aliases.awk" \
+	  stdlib.ml stdlib.mli; \
+	} | \
 	$(GNUISH_SED) -E \
 	-e 's/^(${STDLIB_NAMESPACE_MODULES})(\.[^i]*)(i?) :/\1\2\3 : \1.ml\3/' \
 	-e 's#(^| )(${STDLIB_NAMESPACE_MODULES})[.]#\1stdlib__\u\2.#' \
-	$< > $@
+	> .$@
