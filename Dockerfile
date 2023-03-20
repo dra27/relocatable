@@ -29,4 +29,4 @@ RUN sed -e '/If any/iexit $STATUS' tools/pre-commit-githook > ../.git/modules/oc
 RUN git remote add upstream https://github.com/ocaml/ocaml.git --fetch
 
 # Stack 'em, pack 'em and rack 'em
-RUN ../stack
+RUN ../relocatable

@@ -4,3 +4,4 @@
 build-local text eol=lf
 pushed text eol=lf
 stack text eol=lf
+relocatable text eol=lf

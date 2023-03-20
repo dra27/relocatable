@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+
+# fix-autogen appears first, since it affects any commit touching configure.
+# Part of #10254 allows overriding the autoconf command in autogen.
+# They don't need to go in branches, however.
+BRANCHES=(fix-autogen@4.08 check-configure@4.12)
+
+# Existing patches in maintenance branches and in opam-repository
+# - Compatibility with -fno-common default in GCC 10 (#9180; 4.09.1)
+#   opam-repository carries a different patch; passing -fcommon to configure
+BRANCHES+=(fcommon@4.08)
+# - SIGSTKSZ change in glibc 2.34 (#10266 and #10726; 4.13.0, 4.14.0)
+#   opam-repository carries this patch already
+BRANCHES+=(sigaltstack sigaltstack-4.09@fixup)
+# - Correct configure script for 4.09.1
+#   configure wasn't regenerated; opam-repository carries this patch already
+BRANCHES+=(fix-4.09.1-configure@4.09)
+
+# Existing patch in maintenance branch and proposed for opam-repository
+# - Fix installing tools links when bytecode programs disabled (#8858; 4.09.1, 4.10.0)
+#   Permits the disabling of bytecode tool installation on 4.08+
+BRANCHES+=(install-bytecode@4.08)
+
+# Existing patches in maintenance branches and proposed for opam-repository
+# - Allow the reconfigure target on Windows (#8996; 4.09.1, 4.10.0)
+#   **Critical**: graphics.4.08.0 and graphics.4.08.1 require it
+BRANCHES+=(win-reconfigure@4.08)
+# - Compatibility mingw-w64's ANSI stdio.h changes (#9939; 4.10.2, 4.11.2, 4.12.0)
+#   **Critical**: OCaml doesn't build with mingw-w64 headers 8.0.0+ otherwise
+BRANCHES+=(mingw-headers@4.09)
+
+# Proposed back-ports to opam-repository only
+# - SUBST_STRING macro in utils/Makefile (from #8650; 4.10.0)
+#   Dependency of #9285
+# - Link all DLLs with -static-libgcc on mingw32 (#9285 and #10046; 4.12.0)
+#   **Critical**: i686 mingw-w64 OCaml requires a runtime DLL not available by
+#                 default
+# - Update config.sub and config.guess (no PR; 4.12.0)
+BRANCHES+=(makefile-tweaks@4.09 static-libgcc@4.11 config.guess@4.11 config.guess-4.09@4.09)
+
+# Proposed back-ports to maintenance branches and opam-repository:
+# - Compatibility with binutils 2.36+ on mingw-w64 x64 (#10351; 4.12.1, 4.13.0)
+#   **Critical**: fix in 4.12.1 is too high risk to back-port, this alters the
+#                 linker flags instead. mingw-w64 x64 is unusable without this
+BRANCHES+=(fix-binutils-2.36@4.11)
+# - Compatibility with mingw-w64 headers 8.0.0 (#10062; 4.12.0)
+#   **Critical**: both mingw-w64 ports require this tweak for the headers to
+#                 behave correctly if user-code loads <stdio.h> (or other
+#                 headers pulling in mingw.h) before <caml/config.h>
+BRANCHES+=(fix-mingw-lld@4.11)
+# - Fix parallel generation of header programs (#2267 + #8626; 4.09.0)
+#   Prerequisite for faster-flexdll on 4.08 (and also fixes Cygwin compilation
+#   on 4.08)
+BRANCHES+=(merge-headers@4.08)
+# - FlexDLL bootstrapping overhaul (#10135; 4.13.0)
+#   Vastly improves the build performance and reliability on Windows. Simplifies
+#   the packaging for ocaml-base-compiler.
+BRANCHES+=(faster-flexdll-4.12@4.12 faster-flexdll-4.11@4.11@fixup faster-flexdll-4.08@4.08@fixup)
+# - Add --disable-stdlib-manpages to configure (#8835 and #9335; 4.11.0)
+#   --disable-stdlib-manpages was added in 4.10.0 but broken by the time of
+#   release. The build is very time-consuming, especially on Windows, so this is
+#   recommended to allow the Windows configuration to use it
+BRANCHES+=(fix-stdlib-manpages-4.09@4.09 fix-stdlib-manpages@4.10)
+# - Add --disable-ocamltest to configure (#9250; 4.11.0)
+#   ocamltest is never installed, but the build uses time and resources. Propose
+#   back-porting this to save time on older compiler builds.
+BRANCHES+=(disable-ocamltest@4.10)
+
+# These all simplify the testing infrastructure, but aren't required:
+# - Add --enable-warn-error (from #9625; 4.12.0)
+# - Fix warn-error issues with win32graph (ocaml/graphics#28)
+# - Allow make's default target to build the compiler (from #8951; 4.10.0)
+# - Revert the Wdeclaration-after-statement dev-error (from #1176; 4.11.0 - back-ports part of #11051; 5.0.0)
+# - Don't define _INTEGRAL_MAX_BITS in Windows stat implementation (#9686; 4.12.0)
+# - autoconf tweaks (#8639; 4.11.0)
+# - fix tools/check-symbol-names (#9260; 4.11.0)
+BRANCHES+=(win32-safe-string@4.08 _integral_max_bits@4.11 declaration-after-statement@4.14 warn-error@4.11 make-default-target@4.09 autoconf-tweak@4.10 autoconf-tweak-4.09@fixup~1 runtime_name_escape@4.10)
+
+# - CI tweaks and backports
+BRANCHES+=(improve-depend-from-scratch@4.09 ocamltest 32bit-gha-test@5.0 github-attributes@4.11 ocamltest-4.14@4.14 ocamltest-4.12@4.12 ocamltest-4.11@4.11 ocamltest-tweak@4.11 ocamltest-4.09@fixup~2 fix-test-4229@4.09 ocamltest-4.08@4.08 faster-appveyor@4.10)
+
+# This slightly simplifies the patch rebasing infrastructure, as it stops
+# configure from being completely rejected
+# - Ensure that configure can be patched (#9847; 4.12.0)
+BRANCHES+=(no-configure@4.11)
+
+# Back-ports
+# NB These back-ports have been selected to ease the back-porting of the main
+# PRs. Some of the back-ports will want tweaking after the PRs are finalised.
+# For example, back-porting #1941 and #8992 makes the -set-global-string portion
+# of enable-relative rebase more easily, but the better back-port would be to
+# add the argument using the pre-4.10 mechanisms.
+# - Original long shebang "fix" (#8622; 4.10.0)
+# - Hardening of -use-runtime for spaces and symbols (#11112; 5.0.0)
+# - Expose Config.ext_exe (from #9652; 4.12.0)
+# - Caml_inline macro (from #1176; 4.11.0)
+# - _T / T macro (#2075; 4.09.0)
+# - ocamlrun -config (#9284; 4.13.0)
+# - Eliminate tools/ocamlmklibconfig.ml (#10204; 4.13.0)
+# - Add HAS_REALPATH to s.h (from #10047; 4.13.0)
+# - Add runtime/build_config.h (from #10451; 4.13.0)
+# - Simplification of ocamlcp/ocamloptp processing (#1941; 4.09.0)
+# - Share argument implementations (from #8992; 4.10.0)
+BRANCHES+=(ext_exe@4.11 shebang@4.09 c89_headers@4.10 rename_T_macro@4.08 use-runtime-evil@4.14 use-runtime-evil-fixup@fixup ocamlrun-config@4.12 ocamlmklibconfig-cleanup@4.12 unix-realpath@4.12 build_config@4.12 build_config-4.11@fixup build_config-4.08@fixup ocamlc-dedup3@4.08 shared_args-4.09@4.09 shared_args-4.08@4.08)
+
+# Branches
+#  - misc-win-fixes
+#  - windows-ln
+#  - one-camlheader
+BRANCHES+=(misc-win-fixes windows-ln windows-ln-5.0@fixup windows-ln-4.11@fixup one-camlheader one-camlheader-4.13@fixup~1)
+#  - target-bindir
+BRANCHES+=(target-bindir target-bindir-5.0@fixup)
+#  - ld.conf-CRLF
+#  - ld.conf-search
+BRANCHES+=(ld.conf-CRLF ld.conf-search)
+#  - ld.conf-relative
+BRANCHES+=(ld.conf-relative unified-ld.conf-relative@4.14)
+#  - compiled-primitives
+BRANCHES+=(compiled-primitives compiled-primitives-5.0@fixup compiled-primitives-4.12@fixup)
+#  - enable-relative
+BRANCHES+=(enable-relative unified-enable-relative@fixup~1 unified-enable-relative-5.0@fixup~1 unified-enable-relative-4.x@4.14@fixup unified-enable-relative-4.11@4.11@fixup cmmgen-4.09@fixup~1 unified-enable-relative-4.08@4.08@fixup)
+#  - ld-warning
+BRANCHES+=(ld-warning ld-warning-5.0@fixup)
+#  - runtime-id
+BRANCHES+=(runtime-id runtime-id-5.0@fixup runtime-id-4.14@fixup runtime-id-4.13@fixup runtime-id-4.12@fixup runtime-id-4.11@fixup runtime-id-4.10@fixup runtime-id-4.09@fixup runtime-id-4.08@fixup)
+#  - runtime-suffixing
+BRANCHES+=(runtime-suffixing unified-runtime-suffixing@trunk@fixup unified-runtime-suffixing-5.0@5.0@fixup unified-runtime-suffixing-4.14@4.14@fixup unified-runtime-suffixing-4.12@fixup unified-runtime-suffixing-4.11@fixup~1)
+#  - camlheader-search
+BRANCHES+=(camlheader-search unified-camlheader-search@fixup~1 unified-camlheader-search-5.0@fixup~1 unified-camlheader-search-4.14@fixup~1 unified-camlheader-search-4.13@fixup~1 unified-camlheader-search-4.12@fixup~1 unified-camlheader-search-4.11@fixup~1 unified-camlheader-search-4.10@fixup~1)
+
+TARGETS=(trunk 5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08)
+
+base_prefix='relocatable-base-'
+backport_prefix='backport-'
+
+. $(dirname "$0")/stack
