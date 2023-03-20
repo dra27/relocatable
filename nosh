@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+BRANCHES=(masmchism-trunk)
+
+TARGETS=(trunk)
+
+base_prefix='nosh-'
+backport_prefix='nosh-combined-'
+
+. $(dirname "$0")/stack
