@@ -16,6 +16,8 @@ RUN git --work-tree=.git/modules/ocaml/rr-cache checkout origin/rr-cache -- .
 
 # Configure Git
 WORKDIR ocaml
+# Ensure the normal merge style is in effect or rerere doesn't appear to work!
+RUN git config --local merge.conflictstyle merge
 # Enable rerere with ~10 year retention of resolutions
 RUN git config --local rerere.enabled true
 RUN git config --local gc.rerereResolved 3650
