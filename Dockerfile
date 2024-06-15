@@ -27,6 +27,7 @@ RUN git config --local ocaml.configure-cache ..
 RUN git config --local merge.renameLimit 150000
 # Check commits created by the script (disable the configure check)
 RUN sed -e '/If any/iexit $STATUS' tools/pre-commit-githook > ../.git/modules/ocaml/hooks/pre-commit
+RUN chmod +x ../.git/modules/ocaml/hooks/pre-commit
 # Sync with upstream
 RUN git remote add upstream https://github.com/ocaml/ocaml.git --fetch
 
