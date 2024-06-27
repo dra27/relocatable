@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 state_file="$(realpath $(dirname "$0"))/.stack-state"
+lock_index="$(realpath $(dirname "$0"))/.lock-index"
 dir="$(realpath $(dirname $0)/ocaml)"
 
 if [[ ! -d $dir ]]; then
@@ -15,166 +16,232 @@ if ! git rev-parse --verify upstream/trunk &> /dev/null; then
   exit 1
 fi
 
-# fix-autogen appears first, since it affects any commit touching configure.
-# Part of #10254 allows overriding the autoconf command in autogen.
-# They don't need to go in branches, however.
-BRANCHES=(fix-autogen@4.08 check-configure@4.12)
-TARGETS=()
-COMMANDS=()
-
-# Existing patches in maintenance branches and in opam-repository
-# - Compatibility with -fno-common default in GCC 10 (#9180; 4.09.1)
-#   opam-repository carries a different patch; passing -fcommon to configure
-BRANCHES+=(fcommon@4.08)
-# - SIGSTKSZ change in glibc 2.34 (#10266 and #10726; 4.13.0, 4.14.0)
-#   opam-repository carries this patch already
-BRANCHES+=(sigaltstack sigaltstack-4.09@fixup)
-# - Correct configure script for 4.09.1
-#   configure wasn't regenerated; opam-repository carries this patch already
-BRANCHES+=(fix-4.09.1-configure@4.09)
-
-# Existing patch in maintenance branch and proposed for opam-repository
-# - Fix installing tools links when bytecode programs disabled (#8858; 4.09.1, 4.10.0)
-#   Permits the disabling of bytecode tool installation on 4.08+
-BRANCHES+=(install-bytecode@4.08)
-
-# Existing patches in maintenance branches and proposed for opam-repository
-# - Allow the reconfigure target on Windows (#8996; 4.09.1, 4.10.0)
-#   **Critical**: graphics.4.08.0 and graphics.4.08.1 require it
-BRANCHES+=(win-reconfigure@4.08)
-# - Compatibility mingw-w64's ANSI stdio.h changes (#9939; 4.10.2, 4.11.2, 4.12.0)
-#   **Critical**: OCaml doesn't build with mingw-w64 headers 8.0.0+ otherwise
-BRANCHES+=(mingw-headers@4.09)
-
-# Proposed back-ports to opam-repository only
-# - SUBST_STRING macro in utils/Makefile (from #8650; 4.10.0)
-#   Dependency of #9285
-# - Link all DLLs with -static-libgcc on mingw32 (#9285 and #10046; 4.12.0)
-#   **Critical**: i686 mingw-w64 OCaml requires a runtime DLL not available by
-#                 default
-# - Update config.sub and config.guess (no PR; 4.12.0)
-BRANCHES+=(makefile-tweaks@4.09 static-libgcc@4.11 config.guess@4.11 config.guess-4.09@4.09)
-
-# Proposed back-ports to maintenance branches and opam-repository:
-# - Compatibility with binutils 2.36+ on mingw-w64 x64 (#10351; 4.12.1, 4.13.0)
-#   **Critical**: fix in 4.12.1 is too high risk to back-port, this alters the
-#                 linker flags instead. mingw-w64 x64 is unusable without this
-BRANCHES+=(fix-binutils-2.36@4.11)
-# - Compatibility with mingw-w64 headers 8.0.0 (#10062; 4.12.0)
-#   **Critical**: both mingw-w64 ports require this tweak for the headers to
-#                 behave correctly if user-code loads <stdio.h> (or other
-#                 headers pulling in mingw.h) before <caml/config.h>
-BRANCHES+=(fix-mingw-lld@4.11)
-# - Fix parallel generation of header programs (#2267 + #8626; 4.09.0)
-#   Prerequisite for faster-flexdll on 4.08 (and also fixes Cygwin compilation
-#   on 4.08)
-BRANCHES+=(merge-headers@4.08)
-# - FlexDLL bootstrapping overhaul (#10135; 4.13.0)
-#   Vastly improves the build performance and reliability on Windows. Simplifies
-#   the packaging for ocaml-base-compiler.
-BRANCHES+=(faster-flexdll-4.12@4.12 faster-flexdll-4.11@4.11@fixup faster-flexdll-4.08@4.08@fixup)
-# - Add --disable-stdlib-manpages to configure (#8835 and #9335; 4.11.0)
-#   --disable-stdlib-manpages was added in 4.10.0 but broken by the time of
-#   release. The build is very time-consuming, especially on Windows, so this is
-#   recommended to allow the Windows configuration to use it
-BRANCHES+=(fix-stdlib-manpages-4.09@4.09 fix-stdlib-manpages@4.10)
-# - Add --disable-ocamltest to configure (#9250; 4.11.0)
-#   ocamltest is never installed, but the build uses time and resources. Propose
-#   back-porting this to save time on older compiler builds.
-BRANCHES+=(disable-ocamltest@4.10)
-
-# These all simplify the testing infrastructure, but aren't required:
-# - Add --enable-warn-error (from #9625; 4.12.0)
-# - Fix warn-error issues with win32graph (ocaml/graphics#28)
-# - Allow make's default target to build the compiler (from #8951; 4.10.0)
-# - Revert the Wdeclaration-after-statement dev-error (from #1176; 4.11.0 - back-ports part of #11051; 5.0.0)
-# - Don't define _INTEGRAL_MAX_BITS in Windows stat implementation (#9686; 4.12.0)
-# - autoconf tweaks (#8639; 4.11.0)
-# - fix tools/check-symbol-names (#9260; 4.11.0)
-BRANCHES+=(win32-safe-string@4.08 _integral_max_bits@4.11 declaration-after-statement@4.14 warn-error@4.11 make-default-target@4.09 autoconf-tweak@4.10 autoconf-tweak-4.09@fixup~1 runtime_name_escape@4.10)
-
-# - CI tweaks and backports
-BRANCHES+=(improve-depend-from-scratch@4.09 ocamltest 32bit-gha-test@5.0 github-attributes@4.11 ocamltest-4.14@4.14 ocamltest-4.12@4.12 ocamltest-4.11@4.11 ocamltest-tweak@4.11 ocamltest-4.09@fixup~2 fix-test-4229@4.09 ocamltest-4.08@4.08 faster-appveyor@4.10)
-
-# This slightly simplifies the patch rebasing infrastructure, as it stops
-# configure from being completely rejected
-# - Ensure that configure can be patched (#9847; 4.12.0)
-BRANCHES+=(no-configure@4.11)
-
-# Back-ports
-# NB These back-ports have been selected to ease the back-porting of the main
-# PRs. Some of the back-ports will want tweaking after the PRs are finalised.
-# For example, back-porting #1941 and #8992 makes the -set-global-string portion
-# of enable-relative rebase more easily, but the better back-port would be to
-# add the argument using the pre-4.10 mechanisms.
-# - Original long shebang "fix" (#8622; 4.10.0)
-# - Hardening of -use-runtime for spaces and symbols (#11112; 5.0.0)
-# - Expose Config.ext_exe (from #9652; 4.12.0)
-# - Caml_inline macro (from #1176; 4.11.0)
-# - _T / T macro (#2075; 4.09.0)
-# - ocamlrun -config (#9284; 4.13.0)
-# - Eliminate tools/ocamlmklibconfig.ml (#10204; 4.13.0)
-# - Add HAS_REALPATH to s.h (from #10047; 4.13.0)
-# - Add runtime/build_config.h (from #10451; 4.13.0)
-# - Simplification of ocamlcp/ocamloptp processing (#1941; 4.09.0)
-# - Share argument implementations (from #8992; 4.10.0)
-BRANCHES+=(ext_exe@4.11 shebang@4.09 c89_headers@4.10 rename_T_macro@4.08 use-runtime-evil@4.14 use-runtime-evil-fixup@fixup ocamlrun-config@4.12 ocamlmklibconfig-cleanup@4.12 unix-realpath@4.12 build_config@4.12 build_config-4.11@fixup build_config-4.08@fixup ocamlc-dedup3@4.08 shared_args-4.09@4.09 shared_args-4.08@4.08)
-
-# Branches
-#  - misc-win-fixes
-#  - windows-ln
-#  - one-camlheader
-BRANCHES+=(misc-win-fixes windows-ln windows-ln-5.0@fixup windows-ln-4.11@fixup one-camlheader one-camlheader-4.13@fixup~1)
-#  - target-bindir
-BRANCHES+=(target-bindir target-bindir-5.0@fixup)
-#  - ld.conf-CRLF
-#  - ld.conf-search
-BRANCHES+=(ld.conf-CRLF ld.conf-search)
-#  - ld.conf-relative
-BRANCHES+=(ld.conf-relative unified-ld.conf-relative@4.14)
-#  - compiled-primitives
-BRANCHES+=(compiled-primitives compiled-primitives-5.0@fixup compiled-primitives-4.12@fixup)
-#  - enable-relative
-BRANCHES+=(enable-relative unified-enable-relative@fixup~1 unified-enable-relative-5.0@fixup~1 unified-enable-relative-4.x@4.14@fixup unified-enable-relative-4.11@4.11@fixup cmmgen-4.09@fixup~1 unified-enable-relative-4.08@4.08@fixup)
-#  - ld-warning
-BRANCHES+=(ld-warning ld-warning-5.0@fixup)
-#  - runtime-id
-BRANCHES+=(runtime-id runtime-id-5.0@fixup runtime-id-4.14@fixup runtime-id-4.13@fixup runtime-id-4.12@fixup runtime-id-4.11@fixup runtime-id-4.10@fixup runtime-id-4.09@fixup runtime-id-4.08@fixup)
-#  - runtime-suffixing
-BRANCHES+=(runtime-suffixing unified-runtime-suffixing@trunk@fixup unified-runtime-suffixing-5.0@5.0@fixup unified-runtime-suffixing-4.14@4.14@fixup unified-runtime-suffixing-4.12@fixup unified-runtime-suffixing-4.11@fixup~1)
-#  - camlheader-search
-BRANCHES+=(camlheader-search unified-camlheader-search@fixup~1 unified-camlheader-search-5.0@fixup~1 unified-camlheader-search-4.14@fixup~1 unified-camlheader-search-4.13@fixup~1 unified-camlheader-search-4.12@fixup~1 unified-camlheader-search-4.11@fixup~1 unified-camlheader-search-4.10@fixup~1)
-
-TARGETS=(trunk 5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08)
-
-# Check the branches all exist and collect the commits to stack
-for branch in "${BRANCHES[@]}"; do
-  branch="${branch%%@*}"
-  if ! git rev-parse --verify $branch &> /dev/null; then
-    if ! git rev-parse --verify origin/$branch &> /dev/null; then
-      echo "Both $branch and origin/$branch do not exist!" >&2
+if [[ -n $1 ]]; then
+  if ! git rev-parse --verify relocatable-locks &> /dev/null; then
+    if ! git rev-parse --verify origin/relocatable-locks &> /dev/null; then
+      echo "origin/relocatable-locks not found?!" >&2
       exit 1
     else
-      git branch --track $branch origin/$branch
+      git branch --track relocatable-locks origin/relocatable-locks
     fi
   fi
-done
 
-fault=0
-for root in "${TARGETS[@]}"; do
-  if ! git rev-parse --verify relocatable-base-$root &> /dev/null; then
-    if ! git rev-parse --verify origin/relocatable-base-$root &> /dev/null; then
-      echo "Target $root not found" >&2
-      fault=1
+  if ! git rev-parse --verify "$1" &> /dev/null; then
+    echo "Lock not found: $1" >&2
+    exit 1
+  else
+    lock="$(git rev-parse "$1")"
+    contained="$(git branch relocatable-locks --contains "$lock")"
+    if [[ -z $contained ]]; then
+      echo "Lock not found: $1" >&2
+      exit 1
     else
-      git branch relocatable-base-$root origin/relocatable-base-$root
+      git --work-tree=../.git/modules/ocaml restore --source=$lock --worktree -- rr-cache
     fi
   fi
-done
-if ((fault)); then
-  exit 1
+else
+  lock=''
 fi
 
+start_time=$(date '+%Y-%m-%d %H:%M:%S')
+
+declare -A HEADS
+
+if [[ -z $lock ]]; then
+  # fix-autogen appears first, since it affects any commit touching configure.
+  # Part of #10254 allows overriding the autoconf command in autogen.
+  # They don't need to go in branches, however.
+  BRANCHES=(fix-autogen@4.08 check-configure@4.12)
+
+  # Existing patches in maintenance branches and in opam-repository
+  # - Compatibility with -fno-common default in GCC 10 (#9180; 4.09.1)
+  #   opam-repository carries a different patch; passing -fcommon to configure
+  BRANCHES+=(fcommon@4.08)
+  # - SIGSTKSZ change in glibc 2.34 (#10266 and #10726; 4.13.0, 4.14.0)
+  #   opam-repository carries this patch already
+  BRANCHES+=(sigaltstack sigaltstack-4.09@fixup)
+  # - Correct configure script for 4.09.1
+  #   configure wasn't regenerated; opam-repository carries this patch already
+  BRANCHES+=(fix-4.09.1-configure@4.09)
+
+  # Existing patch in maintenance branch and proposed for opam-repository
+  # - Fix installing tools links when bytecode programs disabled
+  #     (#8858; 4.09.1, 4.10.0)
+  #   Permits the disabling of bytecode tool installation on 4.08+
+  BRANCHES+=(install-bytecode@4.08)
+
+  # Existing patches in maintenance branches and proposed for opam-repository
+  # - Allow the reconfigure target on Windows (#8996; 4.09.1, 4.10.0)
+  #   **Critical**: graphics.4.08.0 and graphics.4.08.1 require it
+  BRANCHES+=(win-reconfigure@4.08)
+  # - Compatibility mingw-w64's ANSI stdio.h changes
+  #     (#9939; 4.10.2, 4.11.2, 4.12.0)
+  #   **Critical**: OCaml doesn't build with mingw-w64 headers 8.0.0+ otherwise
+  BRANCHES+=(mingw-headers@4.09)
+
+  # Proposed back-ports to opam-repository only
+  # - SUBST_STRING macro in utils/Makefile (from #8650; 4.10.0)
+  #   Dependency of #9285
+  # - Link all DLLs with -static-libgcc on mingw32 (#9285 and #10046; 4.12.0)
+  #   **Critical**: i686 mingw-w64 OCaml requires a runtime DLL not available by
+  #                 default
+  # - Update config.sub and config.guess (no PR; 4.12.0)
+  BRANCHES+=(makefile-tweaks@4.09 static-libgcc@4.11 config.guess@4.11 config.guess-4.09@4.09)
+
+  # Proposed back-ports to maintenance branches and opam-repository:
+  # - Compatibility with binutils 2.36+ on mingw-w64 x64
+  #     (#10351; 4.12.1, 4.13.0)
+  #   **Critical**: fix in 4.12.1 is too high risk to back-port, this alters the
+  #                 linker flags instead. mingw-w64 x64 is unusable without this
+  BRANCHES+=(fix-binutils-2.36@4.11)
+  # - Compatibility with mingw-w64 headers 8.0.0 (#10062; 4.12.0)
+  #   **Critical**: both mingw-w64 ports require this tweak for the headers to
+  #                 behave correctly if user-code loads <stdio.h> (or other
+  #                 headers pulling in mingw.h) before <caml/config.h>
+  BRANCHES+=(fix-mingw-lld@4.11)
+  # - Fix parallel generation of header programs (#2267 + #8626; 4.09.0)
+  #   Prerequisite for faster-flexdll on 4.08 (and also fixes Cygwin compilation
+  #   on 4.08)
+  BRANCHES+=(merge-headers@4.08)
+  # - FlexDLL bootstrapping overhaul (#10135; 4.13.0)
+  #   Vastly improves the build performance and reliability on Windows.
+  #   Simplifies the packaging for ocaml-base-compiler.
+  BRANCHES+=(faster-flexdll-4.12@4.12 faster-flexdll-4.11@4.11@fixup faster-flexdll-4.08@4.08@fixup)
+  # - Add --disable-stdlib-manpages to configure (#8835 and #9335; 4.11.0)
+  #   --disable-stdlib-manpages was added in 4.10.0 but broken by the time of
+  #   release. The build is very time-consuming, especially on Windows, so this
+  #   is recommended to allow the Windows configuration to use it
+  BRANCHES+=(fix-stdlib-manpages-4.09@4.09 fix-stdlib-manpages@4.10)
+  # - Add --disable-ocamltest to configure (#9250; 4.11.0)
+  #   ocamltest is never installed, but the build uses time and resources.
+  #   Propose back-porting this to save time on older compiler builds.
+  BRANCHES+=(disable-ocamltest@4.10)
+
+  # These all simplify the testing infrastructure, but aren't required:
+  # - Add --enable-warn-error (from #9625; 4.12.0)
+  # - Fix warn-error issues with win32graph (ocaml/graphics#28)
+  # - Allow make's default target to build the compiler (from #8951; 4.10.0)
+  # - Revert the Wdeclaration-after-statement dev-error
+  #     (from #1176; 4.11.0 - back-ports part of #11051; 5.0.0)
+  # - Don't define _INTEGRAL_MAX_BITS in Windows stat implementation
+  #     (#9686; 4.12.0)
+  # - autoconf tweaks (#8639; 4.11.0)
+  # - fix tools/check-symbol-names (#9260; 4.11.0)
+  BRANCHES+=(win32-safe-string@4.08 _integral_max_bits@4.11 declaration-after-statement@4.14 warn-error@4.11 make-default-target@4.09 autoconf-tweak@4.10 autoconf-tweak-4.09@fixup~1 runtime_name_escape@4.10)
+
+  # - CI tweaks and backports
+  BRANCHES+=(improve-depend-from-scratch@4.09 ocamltest 32bit-gha-test@5.0 github-attributes@4.11 ocamltest-4.14@4.14 ocamltest-4.12@4.12 ocamltest-4.11@4.11 ocamltest-tweak@4.11 ocamltest-4.09@fixup~2 fix-test-4229@4.09 ocamltest-4.08@4.08 faster-appveyor@4.10)
+
+  # This slightly simplifies the patch rebasing infrastructure, as it stops
+  # configure from being completely rejected
+  # - Ensure that configure can be patched (#9847; 4.12.0)
+  BRANCHES+=(no-configure@4.11)
+
+  # Back-ports
+  # NB These back-ports have been selected to ease the back-porting of the main
+  # PRs. Some of the back-ports will want tweaking after the PRs are finalised.
+  # For example, back-porting #1941 and #8992 makes the -set-global-string
+  # portion of enable-relative rebase more easily, but the better back-port
+  # would be to add the argument using the pre-4.10 mechanisms.
+  # - Original long shebang "fix" (#8622; 4.10.0)
+  # - Hardening of -use-runtime for spaces and symbols (#11112; 5.0.0)
+  # - Expose Config.ext_exe (from #9652; 4.12.0)
+  # - Caml_inline macro (from #1176; 4.11.0)
+  # - _T / T macro (#2075; 4.09.0)
+  # - ocamlrun -config (#9284; 4.13.0)
+  # - Eliminate tools/ocamlmklibconfig.ml (#10204; 4.13.0)
+  # - Add HAS_REALPATH to s.h (from #10047; 4.13.0)
+  # - Add runtime/build_config.h (from #10451; 4.13.0)
+  # - Simplification of ocamlcp/ocamloptp processing (#1941; 4.09.0)
+  # - Share argument implementations (from #8992; 4.10.0)
+  BRANCHES+=(ext_exe@4.11 shebang@4.09 c89_headers@4.10 rename_T_macro@4.08 use-runtime-evil@4.14 use-runtime-evil-fixup@fixup ocamlrun-config@4.12 ocamlmklibconfig-cleanup@4.12 unix-realpath@4.12 build_config@4.12 build_config-4.11@fixup build_config-4.08@fixup ocamlc-dedup3@4.08 shared_args-4.09@4.09 shared_args-4.08@4.08)
+
+  # Branches
+  #  - misc-win-fixes
+  #  - windows-ln
+  #  - one-camlheader
+  BRANCHES+=(misc-win-fixes windows-ln windows-ln-5.0@fixup windows-ln-4.11@fixup one-camlheader one-camlheader-4.13@fixup~1)
+  #  - target-bindir
+  BRANCHES+=(target-bindir target-bindir-5.0@fixup)
+  #  - ld.conf-CRLF
+  #  - ld.conf-search
+  BRANCHES+=(ld.conf-CRLF ld.conf-search)
+  #  - ld.conf-relative
+  BRANCHES+=(ld.conf-relative unified-ld.conf-relative@4.14)
+  #  - compiled-primitives
+  BRANCHES+=(compiled-primitives compiled-primitives-5.0@fixup compiled-primitives-4.12@fixup)
+  #  - enable-relative
+  BRANCHES+=(enable-relative unified-enable-relative@fixup~1 unified-enable-relative-5.0@fixup~1 unified-enable-relative-4.x@4.14@fixup unified-enable-relative-4.11@4.11@fixup cmmgen-4.09@fixup~1 unified-enable-relative-4.08@4.08@fixup)
+  #  - ld-warning
+  BRANCHES+=(ld-warning ld-warning-5.0@fixup)
+  #  - runtime-id
+  BRANCHES+=(runtime-id runtime-id-5.0@fixup runtime-id-4.14@fixup runtime-id-4.13@fixup runtime-id-4.12@fixup runtime-id-4.11@fixup runtime-id-4.10@fixup runtime-id-4.09@fixup runtime-id-4.08@fixup)
+  #  - runtime-suffixing
+  BRANCHES+=(runtime-suffixing unified-runtime-suffixing@trunk@fixup unified-runtime-suffixing-5.0@5.0@fixup unified-runtime-suffixing-4.14@4.14@fixup unified-runtime-suffixing-4.12@fixup unified-runtime-suffixing-4.11@fixup~1)
+  #  - camlheader-search
+  BRANCHES+=(camlheader-search unified-camlheader-search@fixup~1 unified-camlheader-search-5.0@fixup~1 unified-camlheader-search-4.14@fixup~1 unified-camlheader-search-4.13@fixup~1 unified-camlheader-search-4.12@fixup~1 unified-camlheader-search-4.11@fixup~1 unified-camlheader-search-4.10@fixup~1)
+
+  TARGETS=(trunk 5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08)
+
+  # Check the branches all exist and collect the commits to stack
+  for instruction in "${BRANCHES[@]}"; do
+    branch="${instruction%%@*}"
+    if ! git rev-parse --verify $branch &> /dev/null; then
+      if ! git rev-parse --verify origin/$branch &> /dev/null; then
+        echo "Both $branch and origin/$branch do not exist!" >&2
+        exit 1
+      else
+        git branch --track $branch origin/$branch
+      fi
+    fi
+    if [[ -n ${HEADS[$branch]+x} ]]; then
+      echo "$branch appears more than once in in \$BRANCHES" >&2
+      exit 1
+    else
+      HEADS["$instruction"]="$(git rev-parse $branch)"
+    fi
+  done
+
+  fault=0
+  for root in "${TARGETS[@]}"; do
+    if ! git rev-parse --verify relocatable-base-$root &> /dev/null; then
+      if ! git rev-parse --verify origin/relocatable-base-$root &> /dev/null; then
+        echo "Target $root not found" >&2
+        fault=1
+        continue
+      else
+        git branch relocatable-base-$root origin/relocatable-base-$root
+      fi
+    fi
+    HEADS["relocatable-base-$root"]="$(git rev-parse relocatable-base-$root)"
+  done
+  if ((fault)); then
+    exit 1
+  fi
+
+  for instruction in "${BRANCHES[@]}" "${TARGETS[@]}"; do
+    if [[ -z ${HEADS[$instruction]} ]]; then
+      echo "relocatable-base-$instruction ${HEADS[relocatable-base-$instruction]}"
+    else
+      echo "$instruction ${HEADS[$instruction]}"
+    fi
+  done > ../branches
+
+else
+
+  rm -f ../branches
+
+  while read -r branch head; do
+    if [[ $branch = ${branch#relocatable-base-} ]]; then
+      BRANCHES+=($branch)
+    else
+      TARGETS+=(${branch#relocatable-base-})
+    fi
+    HEADS[$branch]=$head
+  done < <(git show $lock:branches)
+fi
+
+COMMANDS=()
 COMMITS=()
 WORKING=()
 if [[ ! -e $state_file ]]; then
@@ -209,7 +276,7 @@ if [[ ! -e $state_file ]]; then
       if [[ $count = $upstream ]]; then
         count=0
       fi
-      commit="$(git log --format=%h -n 1 "$branch")"
+      commit="$(git log --format=%h -n 1 "${HEADS[$entry]}")"
       COMMITS+=("adjust $count $entry $commit")
     elif [[ $upstream =~ @fixup$ ]]; then
       upstream="${upstream%@fixup}"
@@ -222,7 +289,7 @@ if [[ ! -e $state_file ]]; then
         fi
         cmd="$cmd $commit"
         ((count++))
-      done < <(git log upstream/$upstream..$branch --format="%h %s" --reverse)
+      done < <(git log upstream/$upstream..${HEADS[$entry]} --format="%h %s" --reverse)
       COMMITS+=("adjust $count $cmd")
     else
       while read -r entry; do
@@ -244,7 +311,7 @@ if [[ ! -e $state_file ]]; then
         else
           COMMITS+=("pick $commit")
         fi
-      done < <(git log upstream/$upstream..$branch --format="%h %s" --reverse)
+      done < <(git log upstream/$upstream..${HEADS[$entry]} --format="%h %s" --reverse)
     fi
   done
 
@@ -263,6 +330,7 @@ else
 
   # Load the stack state
   phase=0
+  declare -A LOCK
   while read -r line; do
     case ${line%% *} in
       pick|bootstrap|coreboot|fixup|adjust|next)
@@ -278,15 +346,40 @@ else
         COMMANDS+=("$line");;
       target)
         target="${line#* }";;
+      lock)
+        item="${line#* }"
+        LOCK["${line% *}"]="${line#* }";;
       *)
         echo "Unrecognised command: $line" >&2
         phase=2;;
     esac
   done < <(cat "$state_file")
+
   if [[ $phase -gt 1 ]]; then
     exit 1
   fi
+
+  for branch in $(printf "%s\n" "${!LOCK[@]}" | sort); do
+    echo "$branch ${LOCK[$branch]}"
+  done > ../.stack-branches
+
+  if diff -q ../branches ../.stack-branches > /dev/null ; then
+    rm ../.stack-branches
+  else
+    echo "Branches appear to have been altered:"
+    diff ../.stack-branches ../branches
+    exit 1
+  fi
+
   rm "$state_file"
+fi
+
+rm -f "$lock_index"
+if [[ -e ../branches ]]; then
+  rm -f branches
+  mv ../branches .
+  GIT_INDEX_FILE="$lock_index" git add -f branches
+  rm branches
 fi
 
 function abort
@@ -717,7 +810,7 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
         sha="${cmd#* }"
         case "$verb" in
           pick|bootstrap|coreboot)
-            if ! is-backport "$sha" "$target"; then
+            if ! is-backport "$sha" "${HEADS[$target]}"; then
               echo "Skipping $sha as it's older than $target ($(git log -n 1 --format=%s $sha))"
               WORKING+=("next $cmd")
             else
@@ -726,7 +819,7 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
           adjust)
             # INSTR[0] = adjust; INSTR[1] = count; INSTR[2] = description; INSTR[@]:3 = commits
             INSTR=($cmd)
-            if ! is-backport "${INSTR[3]}" "$target"; then
+            if ! is-backport "${INSTR[3]}" "${HEADS[$target]}"; then
               WORKING+=("next $cmd")
               echo "Skipping ${INSTR[2]} as it's older than $target"
             else
@@ -769,7 +862,7 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
           esac
       done
       COMMITS=()
-      git checkout -B "$target_branch" "$arg" &> /dev/null
+      git checkout -B "$target_branch" "${HEADS[$arg]}" &> /dev/null
       rebase;;
     *)
       echo "Internal error: unrecognised command $instr" >&2
@@ -786,6 +879,7 @@ done
 cd ..
 if ((!aborting)); then
   git submodule update
+  git -C "$dir" clean -dfX &> /dev/null
 fi
 
 if [[ ${#BOOTSTRAPS[@]} -gt 0 ]]; then
@@ -799,3 +893,43 @@ fi
 if ((aborting)); then
   exit 2
 fi
+
+if [[ ! -e $lock_index ]]; then
+  exit 0
+fi
+
+cd "$dir"
+
+GIT_INDEX_FILE="$lock_index" git --work-tree=../.git/modules/ocaml add \
+  $(cd ../.git/modules/ocaml ; \
+    find rr-cache -type f -newermt "$start_time" -name postimage\*) \
+  $(cd ../.git/modules/ocaml ;
+    find rr-cache -type f -newermt "$start_time" -name postimage\* | sed -e 's/postimage/preimage/')
+
+lock_tree_sha="$(GIT_INDEX_FILE="$lock_index" git write-tree)"
+locks_head="$(git rev-parse relocatable-locks)"
+found_lock=''
+while read -r commit tree; do
+  if [[ $tree = $lock_tree_sha ]]; then
+    found_lock="$commit"
+    break
+  fi
+done < <(git log relocatable-locks --format="%h %T")
+
+if [[ -z $found_lock ]]; then
+  parents=()
+  for instruction in "${BRANCHES[@]}" "${TARGETS[@]}"; do
+    if [[ -z ${HEADS[$instruction]} ]]; then
+      parents+=(-p ${HEADS[relocatable-base-$instruction]})
+    else
+      parents+=(-p ${HEADS[$instruction]})
+    fi
+  done
+  lock_tree_commit="$(git commit-tree -m Lock -p "$locks_head" "${parents[@]}" "$lock_tree_sha")"
+  git branch -f relocatable-locks "$lock_tree_commit"
+  echo "Added $lock_tree_commit to relocatable-locks"
+else
+  echo "Lock $lock_tree_sha already present in relocatable-locks @ $found_lock"
+fi
+
+cd ..

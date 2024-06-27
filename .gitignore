@@ -2,3 +2,5 @@
 ocaml-*.cache
 local
 builds
+branches
+.lock-index
