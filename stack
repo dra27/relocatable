@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 state_file="$(realpath $(dirname "$0"))/.stack-state"
-dir="$(dirname $0)/ocaml"
+dir="$(realpath $(dirname $0)/ocaml)"
 
 if [[ ! -d $dir ]]; then
   echo "Expect OCaml clone in $dir" >&2
