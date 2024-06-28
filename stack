@@ -320,8 +320,8 @@ function merge-base
 # be a back-port, not a revert)
 function is-backport
 {
-  commit="$1"
-  target="$2"
+  local commit="$1"
+  local target="$2"
   # The multicore merge history (from #10831) causes issues for `git merge-base`
   # $pre_10831 is the last commit on trunk before #10831 was merged. If that
   # commit is _not_ an ancestor of $target, then we use that instead of the tip
