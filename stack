@@ -909,6 +909,14 @@ if ((aborting)); then
   exit 2
 fi
 
+echo "Backport summary (first sha is just built; second sha is origin)"
+for root in "${TARGETS[@]}"; do
+  echo "backport-$root: $(git -C "$dir" rev-parse backport-$root) $(git -C "$dir" rev-parse origin/backport-$root)"
+  if ! git -C "$dir" diff --exit-code --quiet origin/backport-$root backport-$root; then
+    git --no-pager -C "$dir" diff --stat origin/backport-$root backport-$root
+  fi
+done
+
 if [[ ! -e $lock_index ]]; then
   exit 0
 fi
