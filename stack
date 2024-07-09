@@ -17,27 +17,36 @@ if ! git rev-parse --verify upstream/trunk &> /dev/null; then
 fi
 
 if [[ -n $1 ]]; then
-  if ! git rev-parse --verify relocatable-locks &> /dev/null; then
-    if ! git rev-parse --verify origin/relocatable-locks &> /dev/null; then
-      echo "origin/relocatable-locks not found?!" >&2
-      exit 1
-    else
+  if [[ $1 = ${1#@} ]]; then
+    if ! git rev-parse --verify relocatable-locks &> /dev/null; then
+      if ! git rev-parse --verify origin/relocatable-locks &> /dev/null; then
+        echo "origin/relocatable-locks not found?!" >&2
+        exit 1
+      fi
       git branch --track relocatable-locks origin/relocatable-locks
     fi
-  fi
 
-  if ! git rev-parse --verify "$1" &> /dev/null; then
-    echo "Lock not found: $1" >&2
-    exit 1
-  else
+    if ! git rev-parse --verify "$1" &> /dev/null; then
+      echo "Lock not found: $1" >&2
+      exit 1
+    fi
+
     lock="$(git rev-parse "$1")"
     contained="$(git branch relocatable-locks --contains "$lock")"
     if [[ -z $contained ]]; then
       echo "Lock not found: $1" >&2
       exit 1
-    else
-      git --work-tree=../.git/modules/ocaml restore --source=$lock --worktree -- rr-cache
     fi
+
+    git --work-tree=../.git/modules/ocaml restore --source=$lock --worktree -- rr-cache
+    lock="git show $lock:branches"
+
+    rm -f ../branches
+  else
+    lock="$(realpath ${1#@})"
+    lock="cat \"$lock\""
+    rm -f ../branches
+    cp "${1#@}" ../branches
   fi
 else
   lock=''
@@ -228,9 +237,6 @@ if [[ -z $lock ]]; then
   done > ../branches
 
 else
-
-  rm -f ../branches
-
   while read -r branch head; do
     if [[ $branch = ${branch#relocatable-base-} ]]; then
       BRANCHES+=($branch)
@@ -238,7 +244,7 @@ else
       TARGETS+=(${branch#relocatable-base-})
     fi
     HEADS[$branch]=$head
-  done < <(git show $lock:branches)
+  done < <(eval "$lock")
 fi
 
 COMMANDS=()
