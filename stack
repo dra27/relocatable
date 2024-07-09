@@ -651,6 +651,12 @@ function coreboot
       if [[ -n $combined ]] && git diff-tree --no-commit-id --name-only -r "$combined" | grep -Fq 'boot/ocaml'; then
         echo "Re-using previous coreboot computation from $combined"
         git reset --hard $combined &> /dev/null
+        if [[ $(git log -1 --format='%cn <%ce> on %cd') != $(git log -1 --format='%an <%ae> on %ad') ]]; then
+          reset-committer
+          new="$(git rev-parse --short HEAD)"
+          echo "Reset committer information on $combined to give $new"
+          combined="$new"
+        fi
         COMMITS+=("coreboot $combined")
         return
       fi
