@@ -443,6 +443,15 @@ function is-backport
   return 1
 }
 
+function reset-committer
+{
+  if ! git rebase --committer-date-is-author-date HEAD~1 &> /dev/null; then
+    git rebase --committer-date-is-author-date HEAD~1
+    echo "Resetting the committer date on the last commit has failed" >&2
+    exit 1
+  fi
+}
+
 function rebase
 {
   while [[ ${#WORKING[@]} -gt 0 ]]; do
@@ -529,7 +538,7 @@ function rebase
               echo 'Do _not_ bootstrap'
             else
               rm _log
-              git rebase --committer-date-is-author-date HEAD~1 &> /dev/null
+              reset-committer
               COMMITS+=("coreboot $(git rev-parse --short HEAD)")
             fi
           else
@@ -627,7 +636,7 @@ function coreboot
     echo "Commit failed - please fix and re-run $0"
   else
     rm _log
-    git rebase --committer-date-is-author-date HEAD~1 &> /dev/null
+    reset-committer
     code_sha="$(git rev-parse --short HEAD)"
     cached="$(git reflog --format='%h %p' | grep " ${code_sha}\$" | head -n 1 | cut -f1 -d' ')"
     if [[ -n $cached ]] && git diff-tree --no-commit-id --name-only -r "$cached" | grep -Fq 'boot/ocaml'; then
@@ -698,12 +707,12 @@ function coreboot
         echo "Commit failed - please fix and re-run $0"
       else
         rm -f _log
-        git rebase --committer-date-is-author-date HEAD~1 &> /dev/null
+        reset-committer
         boot_sha="$(git rev-parse --short HEAD)"
         git reset --hard HEAD~1 &> /dev/null
         git cherry-pick --no-commit $boot_sha &> /dev/null
         git commit --reuse-message="$1" --amend &> /dev/null
-        git rebase --committer-date-is-author-date HEAD~1 &> /dev/null
+        reset-committer
         head="$(git rev-parse --short HEAD)"
         COMMITS+=("coreboot $head")
       fi
@@ -730,7 +739,7 @@ function commit
       return
     fi
     rm -f _log
-    git rebase --committer-date-is-author-date HEAD~1 &> /dev/null
+    reset-committer
     head="$(git rev-parse --short HEAD)"
     #echo "Committed HEAD $head"
     if [[ -n $2 ]]; then
