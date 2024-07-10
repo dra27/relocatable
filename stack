@@ -582,11 +582,22 @@ function reconfigure
     fi
     rm -f configure
     if [[ $(sed -ne 's/^AC_PREREQ(\[\(.*\)\])$/\1/p' configure.ac) =~ ^(2.69)?$ ]]; then
+      if grep -q '^autoconf ' $autogen; then
+        restore="sed -i -e 's/^\${1-autoconf}/autoconf/' $autogen"
+        sed -i -e 's/^autoconf/${1-autoconf}/' $autogen
+      elif grep -q '[^$]autoconf -' $autogen; then
+        restore="sed -i -e 's/\${1-autoconf}/autoconf/' $autogen"
+        sed -i -e 's/autoconf -/${1-autoconf} -/' $autogen
+      else
+        restore=''
+      fi
       autogen="$autogen autoconf2.69"
     fi
     if $autogen; then
+      eval $restore
       git add -- configure
     else
+      eval $restore
       abort
       echo "Regenerating configure failed - please fix and re-run $0"
       return 1
