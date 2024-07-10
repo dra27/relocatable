@@ -39,6 +39,7 @@ if [[ -n $1 ]]; then
     fi
 
     git --work-tree=../.git/modules/ocaml restore --source=$lock --worktree -- rr-cache
+    backports="$lock"
     lock="git show $lock:branches"
 
     rm -f ../branches
@@ -47,9 +48,11 @@ if [[ -n $1 ]]; then
     lock="cat \"$lock\""
     rm -f ../branches
     cp "${1#@}" ../branches
+    backports=''
   fi
 else
   lock=''
+  backports=''
 fi
 
 start_time=$(date '+%Y-%m-%d %H:%M:%S')
@@ -926,11 +929,44 @@ if ((aborting)); then
   exit 2
 fi
 
-echo "Backport summary (first sha is just built; second sha is origin)"
+declare -A BACKPORTS
+if [[ -n $backports ]]; then
+  # Load from the file
+  while read -r root sha; do
+    BACKPORTS[$root]="$sha"
+  done < <(git -C "$dir" show "$backports:backports")
+else
+  # Load from origin
+  for root in "${TARGETS[@]}"; do
+    BACKPORTS[backport-$root]="$(git -C "$dir" rev-parse origin/backport-$root)"
+  done
+fi
+
+return_to="$(git rev-parse HEAD)"
+echo "Backport summary (first sha is just built; second sha is expected)"
+echo -e " - Identical shas \e[90mgreyed out\e[0m;"
+echo -e " - Differ only by commit date (old stack bug) \e[32min green\e[0m;"
+echo -e " - Final tree identical but commit sequence differs \e[33min yellow\e[0m;"
+echo -e " - Trees differ \e[31min red\e[0m with differences shown"
 for root in "${TARGETS[@]}"; do
-  echo "backport-$root: $(git -C "$dir" rev-parse backport-$root) $(git -C "$dir" rev-parse origin/backport-$root)"
-  if ! git -C "$dir" diff --exit-code --quiet origin/backport-$root backport-$root; then
-    git --no-pager -C "$dir" diff --stat origin/backport-$root backport-$root
+  calculated_sha="$(git -C "$dir" rev-parse backport-$root)"
+  recorded_sha="${BACKPORTS[backport-$root]}"
+  if [[ $calculated_sha = $recorded_sha ]]; then
+    echo -e "backport-$root: \e[90m$calculated_sha $recorded_sha\e[0m"
+  elif ! git -C "$dir" diff --exit-code --quiet $recorded_sha $calculated_sha; then
+    echo -e "backport-$root: $calculated_sha \e[31m$recorded_sha\e[0m"
+    git --no-pager -C "$dir" diff --stat $recorded_sha $calculated_sha
+  else
+    git checkout -qB stack-checking-for-committer $recorded_sha
+    git rebase --committer-date-is-author-date ${HEADS[relocatable-base-$root]} &> /dev/null
+    cleaned_sha="$(git rev-parse HEAD)"
+    git checkout -q $return_to
+    git branch -qD stack-checking-for-committer
+    if [[ $cleaned_sha = $calculated_sha ]]; then
+      echo -e "backport-$root: $calculated_sha \e[32m$recorded_sha\e[0m"
+    else
+      echo -e "backport-$root: $calculated_sha \e[33m$recorded_sha\e[0m"
+    fi
   fi
 done
 
@@ -945,6 +981,12 @@ GIT_INDEX_FILE="$lock_index" git --work-tree=../.git/modules/ocaml add \
     find rr-cache -type f -newermt "$start_time" -name postimage\*) \
   $(cd ../.git/modules/ocaml ;
     find rr-cache -type f -newermt "$start_time" -name postimage\* | sed -e 's/postimage/preimage/')
+
+for root in "${TARGETS[@]}"; do
+  echo "backport-$root $(git rev-parse backport-$root)"
+done > backports
+GIT_INDEX_FILE="$lock_index" git add backports
+rm backports
 
 lock_tree_sha="$(GIT_INDEX_FILE="$lock_index" git write-tree)"
 locks_head="$(git rev-parse relocatable-locks)"
@@ -964,6 +1006,9 @@ if [[ -z $found_lock ]]; then
     else
       parents+=(-p ${HEADS[$instruction]})
     fi
+  done
+  for root in "${TARGETS[@]}"; do
+    parents+=(-p $(git rev-parse backport-$root))
   done
   lock_tree_commit="$(git commit-tree -m Lock -p "$locks_head" "${parents[@]}" "$lock_tree_sha")"
   git branch -f relocatable-locks "$lock_tree_commit"
