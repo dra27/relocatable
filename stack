@@ -16,16 +16,16 @@ if ! git rev-parse --verify upstream/trunk &> /dev/null; then
   exit 1
 fi
 
+if ! git rev-parse --verify relocatable-locks &> /dev/null; then
+  if ! git rev-parse --verify origin/relocatable-locks &> /dev/null; then
+    echo "origin/relocatable-locks not found?!" >&2
+    exit 1
+  fi
+  git branch --track relocatable-locks origin/relocatable-locks
+fi
+
 if [[ -n $1 ]]; then
   if [[ $1 = ${1#@} ]]; then
-    if ! git rev-parse --verify relocatable-locks &> /dev/null; then
-      if ! git rev-parse --verify origin/relocatable-locks &> /dev/null; then
-        echo "origin/relocatable-locks not found?!" >&2
-        exit 1
-      fi
-      git branch --track relocatable-locks origin/relocatable-locks
-    fi
-
     if ! git rev-parse --verify "$1" &> /dev/null; then
       echo "Lock not found: $1" >&2
       exit 1
