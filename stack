@@ -942,7 +942,7 @@ else
   done
 fi
 
-return_to="$(git rev-parse HEAD)"
+return_to="$(git -C "$dir" rev-parse HEAD)"
 echo "Backport summary (first sha is just built; second sha is expected)"
 echo -e " - Identical shas \e[90mgreyed out\e[0m;"
 echo -e " - Differ only by commit date (old stack bug) \e[32min green\e[0m;"
@@ -957,11 +957,11 @@ for root in "${TARGETS[@]}"; do
     echo -e "backport-$root: $calculated_sha \e[31m$recorded_sha\e[0m"
     git --no-pager -C "$dir" diff --stat $recorded_sha $calculated_sha
   else
-    git checkout -qB stack-checking-for-committer $recorded_sha
-    git rebase --committer-date-is-author-date ${HEADS[relocatable-base-$root]} &> /dev/null
-    cleaned_sha="$(git rev-parse HEAD)"
-    git checkout -q $return_to
-    git branch -qD stack-checking-for-committer
+    git -C "$dir" checkout -qB stack-checking-for-committer $recorded_sha
+    git -C "$dir" rebase --committer-date-is-author-date ${HEADS[relocatable-base-$root]} &> /dev/null
+    cleaned_sha="$(git -C "$dir" rev-parse HEAD)"
+    git -C "$dir" checkout -q $return_to
+    git -C "$dir" branch -qD stack-checking-for-committer
     if [[ $cleaned_sha = $calculated_sha ]]; then
       echo -e "backport-$root: $calculated_sha \e[32m$recorded_sha\e[0m"
     else
