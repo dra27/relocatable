@@ -1,3 +1,6 @@
+#!/usr/bin/env bash
+
+cat > Dockerfile <<"EOF"
 FROM ocaml/opam:ubuntu-22.04-opam AS base
 
 RUN sudo apt-get update && sudo apt-get install -y gawk autoconf2.69
@@ -42,38 +45,39 @@ WORKDIR ocaml
 # Stack 'em, pack 'em and rack 'em
 RUN script --return --command ../stack ../log
 
-FROM base AS lock-ef758648dd
-RUN script --return --command '../stack ef758648dd' ../log
-FROM base AS lock-b026116679
-RUN script --return --command '../stack b026116679' ../log
-FROM base AS lock-511e988096
-RUN script --return --command '../stack 511e988096' ../log
-FROM base AS lock-d2939babd4
-RUN script --return --command '../stack d2939babd4' ../log
-FROM base AS lock-be8c62d74b
-RUN script --return --command '../stack be8c62d74b' ../log
+EOF
+
+for lock in $(git -C ocaml log --oneline --first-parent --format=%h --reverse origin/relocatable-locks | tail -n +2); do
+  echo "FROM base AS lock-$lock"
+  echo "RUN script --return --command '../stack $lock' ../log"
+done >> Dockerfile
+
+cat >> Dockerfile <<"EOF"
 
 FROM base AS collect
 WORKDIR /home/opam
 COPY --from=main /home/opam/relocatable/log main
-COPY --from=lock-ef758648dd /home/opam/relocatable/log lock-ef758648dd
-COPY --from=lock-b026116679 /home/opam/relocatable/log lock-b026116679
-COPY --from=lock-511e988096 /home/opam/relocatable/log lock-511e988096
-COPY --from=lock-d2939babd4 /home/opam/relocatable/log lock-d2939babd4
-COPY --from=lock-be8c62d74b /home/opam/relocatable/log lock-be8c62d74b
+EOF
+
+for lock in $(git -C ocaml log --oneline --first-parent --format=%h --reverse origin/relocatable-locks | tail -n +2); do
+  echo "COPY --from=lock-$lock /home/opam/relocatable/log lock-$lock"
+done >> Dockerfile
+
+cat >> Dockerfile <<"EOF"
 COPY --chmod=755 <<EOF display.sh
 #!/bin/sh
 
-echo "Lock ef758648dd: $(git -C relocatable/ocaml log -1 --format=%s ef758648dd)"
-sed -e '1,/^Backport summary/d;/^Script done on/d' lock-ef758648dd
-echo "Lock b026116679: $(git -C relocatable/ocaml log -1 --format=%s b026116679)"
-sed -e '1,/^ - Trees differ/d;/^Script done on/d' lock-b026116679
-echo "Lock 511e988096: $(git -C relocatable/ocaml log -1 --format=%s 511e988096)"
-sed -e '1,/^ - Trees differ/d;/^Script done on/d' lock-511e988096
-echo "Lock d2939babd4: $(git -C relocatable/ocaml log -1 --format=%s d2939babd4)"
-sed -e '1,/^ - Trees differ/d;/^Script done on/d' lock-d2939babd4
-echo "Lock be8c62d74b: $(git -C relocatable/ocaml log -1 --format=%s be8c62d74b)"
-sed -e '1,/^ - Trees differ/d;/^Script done on/d' lock-be8c62d74b
-echo 'main run'
-sed -e '1,/^ - Trees differ/d;/^Script done on/d' main
 EOF
+
+sed_line="'1,/^Backport summary/d;/^Script done on/d'"
+for lock in $(git -C ocaml log --oneline --first-parent --format=%h --reverse origin/relocatable-locks | tail -n +2); do
+  echo "echo \"Lock $lock: \$(git -C relocatable/ocaml log -1 --format=%s $lock)\""
+  echo "sed -e $sed_line lock-$lock"
+  sed_line="'1,/^ - Trees differ/d;/^Script done on/d'"
+done >> Dockerfile
+
+cat >> Dockerfile <<ZOF
+echo 'main run'
+sed -e $sed_line main
+EOF
+ZOF

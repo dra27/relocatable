@@ -2,5 +2,6 @@
 * text=auto
 
 build-local text eol=lf
+gen-docker text eol=lf
 pushed text eol=lf
 stack text eol=lf
