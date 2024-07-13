@@ -931,15 +931,18 @@ if ((aborting)); then
 fi
 
 declare -A BACKPORTS
+declare -A REBASE_ROOTS
 if [[ -n $backports ]]; then
   # Load from the file
   while read -r root sha; do
     BACKPORTS[$root]="$sha"
+    REBASE_ROOTS[$root]="${HEADS[relocatable-base-${root#backport-}]}"
   done < <(git -C "$dir" show "$backports:backports")
 else
   # Load from origin
   for root in "${TARGETS[@]}"; do
     BACKPORTS[backport-$root]="$(git -C "$dir" rev-parse origin/backport-$root)"
+    REBASE_ROOTS[backport-$root]="$(git -C "$dir" rev-parse origin/relocatable-base-$root)"
   done
 fi
 
@@ -956,7 +959,11 @@ for root in "${TARGETS[@]}"; do
     echo -e "backport-$root: \e[90m$calculated_sha $recorded_sha\e[0m"
   elif ! git -C "$dir" diff --exit-code --quiet $recorded_sha $calculated_sha; then
     echo -e "backport-$root: $calculated_sha \e[31m$recorded_sha\e[0m"
-    git --no-pager -C "$dir" diff --stat $recorded_sha $calculated_sha
+    if [[ ${REBASE_ROOTS[backport-$root]} = ${HEADS[relocatable-base-$root]} ]]; then
+      git --no-pager -C "$dir" diff --stat $recorded_sha $calculated_sha
+    else
+      echo "  - Roots differ; no diff displayed"
+    fi
   else
     git -C "$dir" checkout -qB stack-checking-for-committer $recorded_sha
     git -C "$dir" rebase --committer-date-is-author-date ${HEADS[relocatable-base-$root]} &> /dev/null
