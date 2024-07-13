@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+
+set -e
+
+function fudge
+{
+  echo Locking ../lock-$1
+  ../stack @../lock-$1 &> ../_log
+  rm ../_log
+  git checkout relocatable-locks
+  if [[ -e ../backports-$1 ]] ; then
+    git mv backports backports-generated
+    cp ../backports-$1 backports
+    git add backports
+    git commit --amend -C HEAD
+    declare -gA SEEN
+    parents=()
+    for sha in $(git log -1 --format='%P'); do
+      parents+=(-p $sha)
+      SEEN[$sha]="$sha"
+    done
+    while read -r root sha; do
+      if [[ -z ${SEEN[$sha]+x} ]]; then
+        echo "Adding $sha to parents for $root in $1"
+        parents+=(-p $sha)
+      fi
+    done < <(cat ../backports-$1)
+    tree_sha="$(git log -1 --format='%T')"
+    git reset --hard HEAD~1
+    result=$(git commit-tree -m Lock "${parents[@]}" $tree_sha)
+    git reset --hard $result
+  fi
+}
+
+git branch -f relocatable-locks f2369d9f92d8c417cbed0db38084292b37bfc448
+
+sed -i -e '/^  utils/s/^  /  runtime /' ../.git/modules/ocaml/rr-cache/25b7a2fd1a5c93fa752a686edcc5bfc275c5fb8b/postimage.2
+fudge 20220914
+sed -i -e '/^  runtime /s/runtime //' ../.git/modules/ocaml/rr-cache/25b7a2fd1a5c93fa752a686edcc5bfc275c5fb8b/postimage.2
+date='Wed Sep 14 11:17:35 2022 +0100'
+GIT_COMMITTER_DATE="$date" git commit --amend --reset-author --date="$date" -F-<<"EOF"
+ICFP Workshop 2022 Presentation
+
+Original full version of relocatable, as presented at the OCaml Users
+and Developers Workshop at ICFP in Ljubljana on 16 September, 2022.
+EOF
+
+fudge 20230217
+date='Fri Feb 17 22:11:31 2023 +0000'
+GIT_COMMITTER_DATE="$date" git commit --amend --reset-author --date="$date" -F-<<"EOF"
+February 2023 Rebase
+
+Main branches rebased to 1c5e748843 and various updates applied to the
+backport process January-February 2023. 4.14 backport moved from 4.14.0
+to 4.14.1 and the 5.0 backport moved from 5.0.0~alpha1 to 5.0.0.
+EOF
+
+fudge 20230218
+date='Sat Feb 18 11:28:32 2023 +0000'
+GIT_COMMITTER_DATE="$date" git commit --amend --reset-author --date="$date" -F-<<"EOF"
+Limit CI building on AppVeyor
+
+Instructions added to appveyor.yml to stop the individual branches being
+built in addition to the PRs on dra27/ocaml. Only deployed to the
+branches which still needed it.
+EOF
+
+fudge 20230320
+date='Mon Mar 20 14:07:24 2023 +0000'
+GIT_COMMITTER_DATE="$date" git commit --amend --reset-author --date="$date" -F-<<"EOF"
+Limit CI building on AppVeyor (continued)
+
+A few more branches where CI wanted re-running had appveyor.yml updated.
+EOF
+
+fudge 20230517
+date='Wed May 17 13:57:46 2023 +0100'
+GIT_COMMITTER_DATE="$date" git commit --amend --reset-author --date="$date" -F-<<"EOF"
+Update windows-ln
+
+Complete rebuild of all PRs on dra27/ocaml, with some additional
+work-in-progress on the windows-ln branch.
+EOF
