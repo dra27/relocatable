@@ -339,7 +339,6 @@ else
 
   # Load the stack state
   phase=0
-  declare -A LOCK
   while read -r line; do
     case ${line%% *} in
       pick|bootstrap|coreboot|fixup|adjust|next)
@@ -356,8 +355,7 @@ else
       target)
         target="${line#* }";;
       lock)
-        item="${line#* }"
-        LOCK["${line% *}"]="${line#* }";;
+        echo "${line#* }" >> ../.stack-branches;;
       *)
         echo "Unrecognised command: $line" >&2
         phase=2;;
@@ -367,10 +365,6 @@ else
   if [[ $phase -gt 1 ]]; then
     exit 1
   fi
-
-  for branch in $(printf "%s\n" "${!LOCK[@]}" | sort); do
-    echo "$branch ${LOCK[$branch]}"
-  done > ../.stack-branches
 
   if diff -q ../branches ../.stack-branches > /dev/null ; then
     rm ../.stack-branches
@@ -400,6 +394,13 @@ function abort
   done > "$state_file"
   echo "target $target" >> "$state_file"
   echo "commit $instr" >> "$state_file"
+  for instruction in "${BRANCHES[@]}" "${TARGETS[@]}"; do
+    if [[ -z ${HEADS[$instruction]} ]]; then
+      echo "lock relocatable-base-$instruction ${HEADS[relocatable-base-$instruction]}" >> "$state_file"
+    else
+      echo "lock $instruction ${HEADS[$instruction]}" >> "$state_file"
+    fi
+  done
   aborting=1
 }
 
