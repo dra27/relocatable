@@ -699,7 +699,7 @@ function coreboot
       return
     fi
     echo 'Building...'
-    if ! git merge --ff-only $code_sha &> /dev/null || ! make -j coreall > _log 2>&1; then
+    if ! git merge --ff-only $code_sha &> /dev/null || ! { ./config.status ; make -j coreall ; } > _log 2>&1 ; then
       cat _log
       rm _log
       git reset --hard $head_sha &> /dev/null
