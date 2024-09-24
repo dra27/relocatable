@@ -700,7 +700,13 @@ function coreboot
       return
     fi
     echo 'Building...'
-    if ! git merge --ff-only $code_sha &> /dev/null || ! { ./config.status ; make -j coreall ; } > _log 2>&1 ; then
+    if ! git merge --ff-only $code_sha &> /dev/null || \
+       ! { if git diff-tree --no-commit-id --name-only -r "$code_sha" | grep -Fxq configure; then \
+             ./configure --disable-native-compiler --disable-ocamldoc --disable-ocamltest --disable-debugger; \
+           else \
+             ./config.status;
+           fi; \
+           make -j coreall ; } > _log 2>&1 ; then
       cat _log
       rm _log
       git reset --hard $head_sha &> /dev/null
