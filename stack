@@ -601,7 +601,7 @@ function reconfigure
     fi
     if $autogen; then
       eval $restore
-      git add -- configure
+      git add -- configure VERSION
     else
       eval $restore
       abort
