@@ -250,6 +250,12 @@ else
   done < <(eval "$lock")
 fi
 
+# At this point:
+# - BRANCHES is an array of the all the branches to be consolidated
+# - TARGETS is an array of all the targets to make (trunk, 5.3, etc.)
+# - HEADS is an associative array mapping everything in BRANCHES to a sha
+
+declare -A PICKED
 COMMANDS=()
 COMMITS=()
 WORKING=()
@@ -318,7 +324,10 @@ if [[ ! -e $state_file ]]; then
             COMMITS+=("coreboot $commit")
           fi
         else
-          COMMITS+=("pick $commit")
+          if [[ -z ${PICKED["$commit"]} ]]; then
+            COMMITS+=("pick $commit")
+            PICKED["$commit"]='1'
+          fi
         fi
       done < <(git log upstream/$upstream..${HEADS[$entry]} --format="%h %s" --reverse)
     fi
