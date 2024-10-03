@@ -402,6 +402,8 @@ else
         target="${line#* }";;
       lock)
         echo "${line#* }" >> ../.stack-branches;;
+      start)
+        start_time="${line#* }";;
       *)
         echo "Unrecognised command: $line" >&2
         phase=2;;
@@ -439,18 +441,21 @@ function abort
 {
   echo "Branch: $branch for $target"
   echo "  $action"
-  for commit in "${COMMITS[@]}"; do
-    echo "$commit"
-  done > "$state_file"
-  echo "target $target" >> "$state_file"
-  echo "commit $instr" >> "$state_file"
-  for instruction in "${BRANCHES[@]}" "${TARGETS[@]}"; do
-    if [[ -z ${HEADS[$instruction]} ]]; then
-      echo "lock relocatable-base-$instruction ${HEADS[relocatable-base-$instruction]}" >> "$state_file"
-    else
-      echo "lock $instruction ${HEADS[$instruction]}" >> "$state_file"
-    fi
-  done
+  {
+    echo "start $start_time"
+    for commit in "${COMMITS[@]}"; do
+      echo "$commit"
+    done;
+    echo "target $target";
+    echo "commit $instr";
+    for instruction in "${BRANCHES[@]}" "${TARGETS[@]}"; do
+      if [[ -z ${HEADS[$instruction]} ]]; then
+        echo "lock relocatable-base-$instruction ${HEADS[relocatable-base-$instruction]}"
+      else
+        echo "lock $instruction ${HEADS[$instruction]}"
+      fi
+    done
+  } > "$state_file"
   aborting=1
 }
 
