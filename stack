@@ -816,6 +816,9 @@ function commit
   done
   TO_DELETE=()
   if [[ -z "$(git status --porcelain)" ]]; then
+    if git commit --allow-empty -m Empty &> /dev/null; then
+      git reset --hard HEAD~1 &> /dev/null
+    fi
     echo "Commit $1 skipped for $target (empty)"
     head="$(git rev-parse --short HEAD)"
   else
