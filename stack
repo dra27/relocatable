@@ -402,6 +402,8 @@ else
         target="${line#* }";;
       lock)
         echo "${line#* }" >> ../.stack-branches;;
+      cherry-stamp)
+        cherry_stamp="${line#* }";;
       start)
         start_time="${line#* }";;
       *)
@@ -443,6 +445,7 @@ function abort
   echo "  $action"
   {
     echo "start $start_time"
+    echo "cherry-stamp $cherry_stamp"
     for commit in "${COMMITS[@]}"; do
       echo "$commit"
     done;
@@ -666,6 +669,8 @@ function reconfigure
 
 function cherry-pick
 {
+  cherry_stamp="$(date '+%Y-%m-%d %H:%M:%S.%N')"
+  sleep 0.01
   git cherry-pick --no-commit "$1" >& /dev/null
   git reset -- Changes $2 &> /dev/null
   git checkout -- Changes $2 &> /dev/null
@@ -808,6 +813,20 @@ function coreboot
   fi
 }
 
+function show-rr-resolutions
+{
+  if [[ -d ../.git/modules/ocaml/rr-cache ]]; then
+    for file in $(find ../.git/modules/ocaml/rr-cache -type f -newermt "$1" -name postimage\*); do
+      in_tree="$(git ls-tree -r "$(git log -1 --format='%T' "$2")" | sed -ne 's/^[^ ]* [^ ]* '"$(git hash-object $file)"'\t//p')"
+      if [[ -n $in_tree ]]; then
+        echo -e "  \e[90m$in_tree corrected using $file\e[0m"
+      else
+        echo -e "  \e[31m$file\e[0m used, but cannot identify which file is affected (new commit is \e[97m$2\e[0m)"
+      fi
+    done
+  fi
+}
+
 TO_DELETE=()
 function commit
 {
@@ -819,6 +838,7 @@ function commit
     if git commit --allow-empty -m Empty &> /dev/null; then
       git reset --hard HEAD~1 &> /dev/null
     fi
+    show-rr-resolutions "$cherry_stamp" "$(git rev-parse --short HEAD)"
     echo "Commit $1 skipped for $target (empty)"
     head="$(git rev-parse --short HEAD)"
   else
@@ -832,6 +852,7 @@ function commit
     rm -f _log
     reset-committer
     head="$(git rev-parse --short HEAD)"
+    show-rr-resolutions "$cherry_stamp" "$head"
     #echo "Committed HEAD $head"
     if [[ -n $2 ]]; then
       eval "com=\"$2\""
