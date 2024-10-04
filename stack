@@ -631,11 +631,19 @@ function reconfigure
   reconfigure=0
   while read -r item; do
     case $item in
-      configure|configure.ac|aclocal.m4|build-aux/*)
-        reconfigure=1;;
+      configure)
+        if [[ $reconfigure -eq 0 ]]; then
+          reconfigure=1
+        fi;;
+      configure.ac|aclocal.m4|build-aux/*)
+        if grep -q '^<<<<<' $item; then
+          reconfigure=-1
+        elif [[ $reconfigure -eq 0 ]]; then
+          reconfigure=1
+        fi;;
     esac
   done < <(git diff --name-only --cached)
-  if ((reconfigure)); then
+  if [[ reconfigure -eq 1 ]]; then
     echo "configure.ac has been changed - regenerating configure"
     if [[ -e tools/autogen ]]; then
       autogen=tools/autogen
