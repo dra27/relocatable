@@ -262,6 +262,7 @@ fi
 # - TARGETS is an array of all the targets to make (trunk, 5.3, etc.)
 # - HEADS is an associative array mapping everything in BRANCHES to a sha
 
+declare -A PROVENANCE
 function menu-info
 {
   if [[ $menu = 'true' ]]; then
@@ -280,6 +281,10 @@ function menu-info
       done
     fi
     echo -ne '\e[0m'
+  elif [[ $2 != 'skip' ]]; then
+    for sha in $3; do
+      PROVENANCE[$sha]="$branch"
+    done
   fi
 }
 
@@ -400,12 +405,17 @@ else
         COMMANDS+=("$line");;
       target)
         target="${line#* }";;
+      target-branch)
+        target_branch="${line#* }";;
       lock)
         echo "${line#* }" >> ../.stack-branches;;
       cherry-stamp)
         cherry_stamp="${line#* }";;
       start)
         start_time="${line#* }";;
+      provenance)
+        line="${line#* }"
+        PROVENANCE[${line% *}]="${line#* }";;
       *)
         echo "Unrecognised command: $line" >&2
         phase=2;;
@@ -441,15 +451,19 @@ fi
 
 function abort
 {
-  echo "Branch: $branch for $target"
+#  echo "Branch: $branch for $target"
   echo "  $action"
   {
+    for sha in "${!PROVENANCE[@]}"; do
+      echo "provenance $sha ${PROVENANCE[$sha]}"
+    done;
     echo "start $start_time"
     echo "cherry-stamp $cherry_stamp"
     for commit in "${COMMITS[@]}"; do
       echo "$commit"
     done;
     echo "target $target";
+    echo "target-branch $target_branch";
     echo "commit $instr";
     for instruction in "${BRANCHES[@]}" "${TARGETS[@]}"; do
       if [[ -z ${HEADS[$instruction]} ]]; then
@@ -532,12 +546,12 @@ function rebase
         COMMITS+=("$sha");;
       pick|fixup)
         if [[ $verb = 'fixup' ]]; then
-          echo "fixup $sha on $target ($(git log -n 1 --format=%s $sha))"
+          echo -e "fixup \e[97m$sha\e[0m (from \e[34m${PROVENANCE[$sha]}\e[0m) on $target_branch - $(git log -n 1 --format='%s' $sha)"
           msg="$(git rev-parse --short HEAD)"
           amend='--amend'
           next=''
         else
-          echo "cherry-pick $sha to $target ($(git log -n 1 --format=%s $sha))"
+          echo -e "cherry-pick \e[97m$sha\e[0m (from \e[34m${PROVENANCE[$sha]}\e[0m) to $target_branch - $(git log -n 1 --format='%s' $sha)"
           msg="$sha"
           amend=''
           next='pick $head'
@@ -546,14 +560,14 @@ function rebase
           commit "$msg" "$next" "$instr" "$amend"
         fi;;
       bootstrap)
-        echo "Bootstrap $target ($sha) on $(git rev-parse --short HEAD)"
+        echo -e "Bootstrap $target_branch (\e[97m$sha\e[0m from \e[34m${PROVENANCE[$sha]}\e[0m) on $(git rev-parse --short HEAD)"
         cached="$(git reflog --format='%h %p' | grep " $(git rev-parse --short HEAD)$" | head -n 1 | cut -f1 -d' ')"
         if [[ -n $cached ]] && git diff-tree --no-commit-id --name-only -r "$cached" | grep -Fq 'boot/ocaml'; then
           echo "Re-using previous bootstrap computation from $cached"
           git merge --ff-only $cached &> /dev/null
           COMMITS+=("bootstrap $cached")
         else
-          BOOTSTRAPS+=("Bootstrap $target ($sha) on $(git rev-parse --short HEAD)")
+          BOOTSTRAPS+=("Bootstrap $target_branch ($sha) on $(git rev-parse --short HEAD)")
           echo "Bootstrapping..."
           if ! ./configure --disable-native-compiler --disable-ocamldoc --disable-ocamltest --disable-debugger > _log 2>&1; then
             cat _log
@@ -592,16 +606,17 @@ function rebase
           fi
         fi;;
       coreboot)
-        coreboot="Coreboot $target ($sha) on $(git rev-parse --short HEAD)"
-        echo "$coreboot"
+        echo -e "Coreboot $target_branch (\e[97m$sha\e[0m from \e[34m${PROVENANCE[$sha]}\e[0m) on $(git rev-parse --short HEAD)"
         if cherry-pick "$sha" 'boot/ocaml*' 'Do _not_ bootstrap'; then
           next="${WORKING[0]}"
           if [[ ${next%% *} = 'fixup' ]]; then
+            # XXX
             echo "Skipping coreboot - next command is a fixup"
             if ! git commit --reuse-message="$sha" &> _log; then
               cat _log
               rm _log
               abort
+              # XXX
               echo "Commit failed - please fix and re-run $0"
               echo 'Do _not_ bootstrap'
             else
@@ -644,7 +659,7 @@ function reconfigure
     esac
   done < <(git diff --name-only --cached)
   if [[ reconfigure -eq 1 ]]; then
-    echo "configure.ac has been changed - regenerating configure"
+    echo -e "  \e[90mconfigure.ac has been changed - regenerating configure\e[0m"
     if [[ -e tools/autogen ]]; then
       autogen=tools/autogen
     else
@@ -669,6 +684,7 @@ function reconfigure
     else
       eval $restore
       abort
+      # XXX
       echo "Regenerating configure failed - please fix and re-run $0"
       return 1
     fi
@@ -701,6 +717,7 @@ function cherry-pick
       abort
       git status
       echo
+      # XXX
       echo "Please resolve changes, add to the index and re-run $0"
       if [[ -n $3 ]]; then
         echo "$3"
@@ -722,6 +739,7 @@ function coreboot
     cat _log
     rm _log
     abort
+    # XXX
     echo "Commit failed - please fix and re-run $0"
   else
     rm _log
@@ -738,11 +756,13 @@ function coreboot
         fi
       done < <(git reflog --format='%h %p' | grep " ${head_sha}\$" | cut -f1 -d' ' | sort | uniq)
       if [[ -n $combined ]] && git diff-tree --no-commit-id --name-only -r "$combined" | grep -Fq 'boot/ocaml'; then
+        # XXX
         echo "Re-using previous coreboot computation from $combined"
         git reset --hard $combined &> /dev/null
         if [[ $(git log -1 --format='%cn <%ce> on %cd') != $(git log -1 --format='%an <%ae> on %ad') ]]; then
           reset-committer
           new="$(git rev-parse --short HEAD)"
+          # XXX
           echo "Reset committer information on $combined to give $new"
           combined="$new"
         fi
@@ -755,6 +775,7 @@ function coreboot
       cat _log
       rm _log
       abort
+      # XXX
       echo "configure failed: either fix or erase $state_file"
       return
     fi
@@ -764,9 +785,12 @@ function coreboot
       cat _log
       rm _log
       abort
+      # XXX
       echo "make coldstart failed: either fix or erase $state_file"
       return
     fi
+    rm -f _log
+    # XXX
     echo 'Building...'
     if ! git merge --ff-only $code_sha &> /dev/null || \
        ! { if git diff-tree --no-commit-id --name-only -r "$code_sha" | grep -Fxq configure; then \
@@ -780,6 +804,7 @@ function coreboot
       git reset --hard $head_sha &> /dev/null
       git cherry-pick --no-commit $code_sha &> /dev/null
       abort
+      # XXX
       echo "make coreall failed: either fix or erase $state_file"
       echo 'Do _not_ bootstrap'
       return
@@ -791,6 +816,7 @@ function coreboot
       git reset --hard $head_sha &> /dev/null
       git cherry-pick --no-commit $code_sha &> /dev/null
       abort
+      # XXX
       echo "make bootstrap failed: either fix or erase $state_file"
       echo 'Do _not_ bootstrap'
     else
@@ -805,6 +831,7 @@ function coreboot
         cat _log
         rm _log
         abort
+        # XXX
         echo "Commit failed - please fix and re-run $0"
       else
         rm -f _log
@@ -829,7 +856,7 @@ function show-rr-resolutions
       if [[ -n $in_tree ]]; then
         echo -e "  \e[90m$in_tree corrected using $file\e[0m"
       else
-        echo -e "  \e[31m$file\e[0m used, but cannot identify which file is affected (new commit is \e[97m$2\e[0m)"
+        echo -e "  \e[31m${file/post/\{pre,post\}}\e[0m used, but cannot identify which file is affected (new commit is \e[97m$2\e[0m)"
       fi
     done
   fi
@@ -847,13 +874,14 @@ function commit
       git reset --hard HEAD~1 &> /dev/null
     fi
     show-rr-resolutions "$cherry_stamp" "$(git rev-parse --short HEAD)"
-    echo "Commit $1 skipped for $target (empty)"
+    echo -e "  Commit skipped - it's empty"
     head="$(git rev-parse --short HEAD)"
   else
     if ! git commit --reuse-message="$1" $4 &> _log; then
       cat _log
       rm _log
       abort
+      # XXX
       echo "Commit failed - please fix and re-run $0"
       return
     fi
@@ -873,6 +901,7 @@ function commit
   if [[ -z $2 ]]; then
     previous="${COMMITS[-1]}"
     if [[ ${previous%% *} = 'coreboot' ]]; then
+      # XXX
       echo "Repeating the previous coreboot"
       # It's slightly simpler just repeat the coreboot commit rather than
       # threading this through the entire fixup logic that it needs to
@@ -898,6 +927,13 @@ function commit
 #  fi
 #done
 #exit 0
+
+# The main loop iterates over COMMANDS, which consists of branch commands and
+# possibly (if recovering from a failure) a commit command. Each branch pours
+# all the commands from COMMITS into WORKING (with any commits which are not yet
+# required buried in a next command). The rebase function then iterates over
+# the WORKING set which carries out the instructions while moving the results
+# back to COMMITS.
 
 BOOTSTRAP=()
 aborting=0
@@ -931,7 +967,7 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
       fi;;
     branch)
       target_branch="backport-${arg#relocatable-base-}"
-      echo "Creating branch $target_branch"
+      echo -e "Creating branch \e[34m$target_branch\e[0m on \e[34m$arg\e[0m"
       target="$arg"
       WORKING=()
       for cmd in "${COMMITS[@]}"; do
@@ -940,7 +976,7 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
         case "$verb" in
           pick|bootstrap|coreboot)
             if ! is-backport "$sha" "${HEADS[$target]}"; then
-              echo "Skipping $sha as it's older than $target ($(git log -n 1 --format=%s $sha))"
+              echo -e "Skipping \e[97m$sha\e[0m (from \e[34m${PROVENANCE[$sha]}\e[0m) as it's older than $target - $(git log -n 1 --format=%s $sha)"
               WORKING+=("next $cmd")
             else
               WORKING+=("$cmd")
@@ -950,7 +986,7 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
             INSTR=($cmd)
             if ! is-backport "${INSTR[3]}" "${HEADS[$target]}"; then
               WORKING+=("next $cmd")
-              echo "Skipping ${INSTR[2]} as it's older than $target"
+              echo -e "Skipping \e[34m${INSTR[2]}\e[0m as it's older than $target"
             else
               count="${INSTR[1]}"
               if [[ $count -eq 0 ]]; then
@@ -1053,7 +1089,9 @@ for root in "${TARGETS[@]}"; do
   elif ! git -C "$dir" diff --exit-code --quiet $recorded_sha $calculated_sha; then
     echo -e "backport-$root: $calculated_sha \e[31m$recorded_sha\e[0m"
     if [[ ${REBASE_ROOTS[backport-$root]} = ${HEADS[relocatable-base-$root]} ]]; then
-      git --no-pager -C "$dir" diff --stat $recorded_sha $calculated_sha
+      # XXX Don't commit this...
+      echo "  - diff display temporarily disabled"
+      # git --no-pager -C "$dir" diff --stat $recorded_sha $calculated_sha
     else
       echo "  - Roots differ; no diff displayed"
     fi
