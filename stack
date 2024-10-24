@@ -24,12 +24,68 @@ if ! git rev-parse --verify relocatable-locks &> /dev/null; then
   git branch --track relocatable-locks origin/relocatable-locks
 fi
 
-if [[ $1 = '--menu' ]]; then
-  shift 1
-  menu=true
-else
-  menu=false
-fi
+function merge-base
+{
+  local base="$(git merge-base "$1" "$2")"
+  # There's an error in the branching history for 4.13, possibly caused by PRs
+  # merged shortly after it was branched. The effect is that there are two
+  # "last commit before branching 4.13" commits in the history which causes the
+  # common parent dd7927 to be selected. We manually amend this to 4.13's
+  # merge-base.
+  if [[ $base = 'dd7927e156b7cb2f9cb73d2d54a15a9c81921392' ]]; then
+    base='621753f3eec9de91495a25723de00cef33a9e35a'
+  fi
+  echo "$base"
+}
+
+# Return status 0 only if the commit specified by $1 is based on a branch which
+# is newer than the commit specified by $2 (i.e. cherry-picking $1 onto $2 would
+# be a back-port, not a revert)
+function is-backport
+{
+  local commit="$1"
+  local target="$2"
+  # The multicore merge history (from #10831) causes issues for `git merge-base`
+  # $pre_10831 is the last commit on trunk before #10831 was merged. If that
+  # commit is _not_ an ancestor of $target, then we use that instead of the tip
+  # of trunk to work out the merge-base, as this avoids the complicated rebase
+  # and merge history in #10831.
+  local pre_10831='263a2a429c'
+  if git merge-base --is-ancestor $pre_10831 "$target"; then
+    local trunk='upstream/trunk'
+  else
+    local trunk=$pre_10831
+  fi
+  local target_sha="$(git rev-list -n 1 "$target")"
+  local target_mergebase="$(merge-base "$target" $trunk)"
+  local mergebase="$(merge-base "$commit" "$target")"
+  if [[ $mergebase = $target_sha ]]; then
+    # Commit is based on target!
+    return
+  elif [[ $mergebase = $target_mergebase ]]; then
+    # The common point between $commit and $target is $target's merge-base with
+    # trunk. That means $commit is newer, as otherwise the common point would
+    # be the merge-base of $commit and trunk.
+    return
+  fi
+
+  # This isn't a back-port
+  return 1
+}
+
+menu=false
+case "$1" in
+  --menu)
+    shift 1
+    menu=true;;
+  --is-backport)
+    if is-backport "$2" "$3"; then
+      echo -e "$2 is \e[97molder\e[0m than $3"
+    else
+      echo -e "$2 is in scope"
+    fi
+    exit 0;;
+esac
 
 if [[ -n $1 ]]; then
   if [[ $1 = ${1#@} ]]; then
@@ -460,55 +516,6 @@ function abort
     done
   } > "$state_file"
   aborting=1
-}
-
-function merge-base
-{
-  local base="$(git merge-base "$1" "$2")"
-  # There's an error in the branching history for 4.13, possibly caused by PRs
-  # merged shortly after it was branched. The effect is that there are two
-  # "last commit before branching 4.13" commits in the history which causes the
-  # common parent dd7927 to be selected. We manually amend this to 4.13's
-  # merge-base.
-  if [[ $base = 'dd7927e156b7cb2f9cb73d2d54a15a9c81921392' ]]; then
-    base='621753f3eec9de91495a25723de00cef33a9e35a'
-  fi
-  echo "$base"
-}
-
-# Return status 0 only if the commit specified by $1 is based on a branch which
-# is newer than the commit specified by $2 (i.e. cherry-picking $1 onto $2 would
-# be a back-port, not a revert)
-function is-backport
-{
-  local commit="$1"
-  local target="$2"
-  # The multicore merge history (from #10831) causes issues for `git merge-base`
-  # $pre_10831 is the last commit on trunk before #10831 was merged. If that
-  # commit is _not_ an ancestor of $target, then we use that instead of the tip
-  # of trunk to work out the merge-base, as this avoids the complicated rebase
-  # and merge history in #10831.
-  pre_10831='263a2a429c'
-  if git merge-base --is-ancestor $pre_10831 "$target"; then
-    trunk='upstream/trunk'
-  else
-    trunk=$pre_10831
-  fi
-  target_sha="$(git rev-list -n 1 "$target")"
-  target_mergebase="$(merge-base "$target" $trunk)"
-  mergebase="$(merge-base "$commit" "$target")"
-  if [[ $mergebase = $target_sha ]]; then
-    # Commit is based on target!
-    return
-  elif [[ $mergebase = $target_mergebase ]]; then
-    # The common point between $commit and $target is $target's merge-base with
-    # trunk. That means $commit is newer, as otherwise the common point would
-    # be the merge-base of $commit and trunk.
-    return
-  fi
-
-  # This isn't a back-port
-  return 1
 }
 
 function reset-committer
