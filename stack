@@ -1125,15 +1125,16 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
                 INSTR=("${INSTR[@]:1}")
                 WORKING+=("fixup $sha")
                 loop=1
-                if [[ ${#POPPED[@]} -gt 0 && $loop -eq 1 ]]; then
+                while [[ ${#POPPED[@]} -gt 0 && $loop -eq 1 ]]; do
                   elt="${POPPED[0]}"
                   WORKING+=("$elt")
                   POPPED=("${POPPED[@]:1}")
-                  case "${elt%% *}" in
-                    fixup|next) ;;
-                    *) loop=0;;
-                  esac
-                fi
+                  # XXX What is this for? Is this in conflict with the way these are working?
+                  #case "${elt%% *}" in
+                  #  fixup|next) ;;
+                  #  *) loop=0;;
+                  ##esac
+                done
               done
             fi;;
           *)
