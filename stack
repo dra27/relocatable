@@ -958,6 +958,7 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
               echo "Skipping ${INSTR[2]} as it's older than $target"
             else
               count="${INSTR[1]}"
+              # Remove $count items from WORKING (not counting fixup/next items)
               if [[ $count -eq 0 ]]; then
                 POPPED=()
               else
@@ -974,12 +975,16 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
                 WORKING=("${WORKING[@]:0:$((${#WORKING[@]} - $i))}")
               fi
               INSTR=("${INSTR[@]:3}")
+              # Now interleave all of the commits in the adjust with the
+              # instructions just popped
               while [[ ${#INSTR[@]} -gt 0 ]]; do
                 sha="${INSTR[0]}"
                 INSTR=("${INSTR[@]:1}")
                 WORKING+=("fixup $sha")
+                # Add the next command from POPPED and any fixup/next commands
+                # which followed it
                 loop=1
-                if [[ ${#POPPED[@]} -gt 0 && $loop -eq 1 ]]; then
+                while [[ ${#POPPED[@]} -gt 0 && $loop -eq 1 ]]; do
                   elt="${POPPED[0]}"
                   WORKING+=("$elt")
                   POPPED=("${POPPED[@]:1}")
@@ -987,7 +992,13 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
                     fixup|next) ;;
                     *) loop=0;;
                   esac
-                fi
+                done
+              done
+              # The commit list does not have to be the same size as the offset,
+              # so ensure all remaining popped commands have been restored to
+              # WORKING
+              for cmd in "${POPPED[@]}"; do
+                WORKING+=("$cmd")
               done
             fi;;
           *)
