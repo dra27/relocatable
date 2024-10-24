@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+
+dir="$(dirname $0)/ocaml"
+
+if [[ ! -d $dir ]]; then
+  echo "Expect OCaml clone in $dir" >&2
+  exit 1
+fi
+
+cd "$dir"
+
+if ! git rev-parse --verify origin/trunk &> /dev/null; then
+  echo 'Could not find origin/trunk' >&2
+  exit 1
+fi
+
+declare -a BRANCHES
+declare -A BRANCH_NAMES
+declare -A BASE
+
+function branch
+{
+  if [[ $1 != 'stop-backporting' ]]; then
+    BRANCHES+=("$1")
+    BRANCH_NAMES["$1"]=''
+    BASE["$1"]="$2"
+  fi
+}
+
+function fixup
+{
+  branch "$1" "$2"
+}
+
+for version in 4.08 4.09 4.10 4.11 4.12 4.13 4.14 5.0 5.1 5.2 5.3 5.4 trunk; do
+  branch relocatable-base-$version upstream/$version
+done
+
+# XXX This may end up needing to go to menu when the upstream PRs are actually opened? (or not: perhaps we'll simply have different branches for that, but they'll get shifted automatically onto relocatable-testing?)
+branch relocatable-testing relocatable-base-trunk
+
+# XXX Better way of doing this?
+for version in 4.08 4.09 4.10 4.11 4.12 4.13 4.14 5.0 5.1 5.2 5.3 5.4 trunk; do
+  BRANCH_NAMES["backport-$version"]=''
+done
+
+. ../menu
+
+#branch unified-header relocatable-base-trunk
+#branch exe-executing launcher-fixes
+
+for branch in "${BRANCHES[@]}"; do
+  base="${BASE["$branch"]}"
+  merge_base="$(git merge-base "$base" "$branch")"
+  branch_head="$(git rev-parse "$branch")"
+#  if [[ -z ${BASE["$base"]+x} ]]; then
+    if [[ $base = 'upstream/trunk' ]]; then
+      if [[ $branch_head != $merge_base ]]; then
+        echo -e "[\e[31mERROR\e[0m] $branch does not refer to a commit on $base"
+      fi
+    elif [[ $merge_base != $(git rev-parse "$base") ]]; then
+      echo -e "[\e[31mERROR\e[0m] $branch is not based on $base"
+    fi
+#  fi
+done
+
+# Branch coherence (cf. BRANCHES in stack)
+
+[[ $1 = '--pushed' ]] || exit 0
+
+NO_REMOTE=()
+PUSHED=()
+OUT_OF_SYNC=()
+while read -r branch; do
+  remote=${branch#* }
+  if [[ $remote = $branch ]]; then
+    case $branch in
+      backport-5.0|backport-4.*) continue;;
+    esac
+    if [[ -n ${BRANCH_NAMES[$branch]+x} ]]; then
+      NO_REMOTE+=("$branch")
+    fi
+  else
+    branch=${branch% *}
+    case $branch,$remote in
+      *,origin/*) ;;
+      *,upstream/*)
+        if [[ ${remote#*/} = $branch ]]; then
+          continue
+        elif [[ -n ${BRANCH_NAMES[$branch]+x} ]]; then
+          NO_REMOTE+=("$branch tracking $remote")
+        fi;;
+      *)
+        if [[ -n ${BRANCH_NAMES[$branch]+x} ]]; then
+          NO_REMOTE+=("$branch tracking $remote")
+        fi
+        continue;;
+    esac
+    if [[ $(git rev-parse "$branch") = $(git rev-parse "$remote") ]]; then
+      true
+      #PUSHED+=("$branch to $remote")
+    else
+      our_timestamp="$(git log -1 --format=%cd --date=unix $branch)"
+      remote_timestamp="$(git log -1 --format=%cd --date=unix $remote)"
+      if [[ $our_timestamp -gt $remote_timestamp ]]; then
+        sync='\e[32mnewer'
+        head_colour=32
+        remote_colour=0
+      else
+        sync='\e[33molder'
+        head_colour=33
+        remote_colour=0
+      fi
+      sync="$sync\\e[0m (\\e[${head_colour}m$(date --date=@$our_timestamp '+%d-%b-%Y %H:%M:%S')\\e[0m vs \\e[${remote_colour}m$(date --date=@$remote_timestamp '+%d-%b-%Y %H:%M:%S')\\e[0m)"
+      if [[ -n ${BRANCH_NAMES[$branch]+x} ]]; then
+        OUT_OF_SYNC+=("$branch with $remote $(git for-each-ref --format='%(push:track)' refs/heads/$branch) - HEAD is $sync")
+      fi
+    fi
+  fi
+done < <(git branch --format='%(refname:lstrip=2) %(upstream:lstrip=2)')
+
+if [[ ${#PUSHED[@]} -gt 0 ]]; then
+  echo -e "\e[32mUp-to-date\e[0m"
+  for branch in "${PUSHED[@]}"; do
+    echo "  - $branch"
+  done
+fi
+
+if [[ ${#NO_REMOTE[@]} -gt 0 ]]; then
+  echo -e "\e[31mUntracked/unrecognised branches\e[0m"
+  for branch in "${NO_REMOTE[@]}"; do
+    echo "  - $branch"
+  done
+fi
+
+if [[ ${#OUT_OF_SYNC[@]} -gt 0 ]]; then
+  echo -e "\e[33mOut-of-sync with origin\e[0m"
+  for branch in "${OUT_OF_SYNC[@]}"; do
+    echo -e "  - $branch"
+  done
+fi
