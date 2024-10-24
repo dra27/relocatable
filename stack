@@ -718,6 +718,10 @@ function coreboot
 {
   head_sha="$(git rev-parse --short HEAD)"
   # Check the cache
+  if [[ -z "$(git status --porcelain)" ]]; then
+    echo "  Commit skipped - it's empty"
+    return
+  fi
   if ! git commit --reuse-message="$1" &> _log; then
     cat _log
     rm _log
