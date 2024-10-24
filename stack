@@ -613,6 +613,16 @@ function rebase
       next)
         COMMITS+=("$sha");;
       pick|fixup)
+        if [[ ${PROVENANCE[$sha]} != $last_provenance ]]; then
+          if [[ ${#SKIPPED} -gt 0 ]]; then
+            for commit in "${SKIPPED[@]}"; do
+              echo -e "Keeping \e[97m$commit\e[0m (from \e[34m$last_provenance\e[0m) as it hasn't yet been used"
+              COMMITS+=("pick $commit")
+            done
+          fi
+          last_provenance='_not_a_provenance'
+          SKIPPED=()
+        fi
         if [[ $verb = 'fixup' ]]; then
           echo -e "fixup \e[97m$sha\e[0m (from \e[34m${PROVENANCE[$sha]}\e[0m) on $target_branch - $(git log -n 1 --format='%s' $sha)"
           msg="$(git rev-parse --short HEAD)"
@@ -628,6 +638,8 @@ function rebase
           commit "$msg" "$next" "$instr" "$amend"
         fi;;
       bootstrap)
+        last_provenance='_not_a_provenance'
+        SKIPPED=()
         echo -e "Bootstrap $target_branch (\e[97m$sha\e[0m from \e[34m${PROVENANCE[$sha]}\e[0m) on $(git rev-parse --short HEAD)"
         cached="$(git reflog --format='%h %p' | grep " $(git rev-parse --short HEAD)$" | head -n 1 | cut -f1 -d' ')"
         if [[ -n $cached ]] && git diff-tree --no-commit-id --name-only -r "$cached" | grep -Fq 'boot/ocaml'; then
@@ -674,6 +686,8 @@ function rebase
           fi
         fi;;
       coreboot)
+        last_provenance='_not_a_provenance'
+        SKIPPED=()
         echo -e "Coreboot $target_branch (\e[97m$sha\e[0m$(provenance "$sha")) on $(git rev-parse --short HEAD) - $(git log -n 1 --format='%s' $sha)"
         if cherry-pick "$sha" 'boot/ocaml*' 'Do _not_ bootstrap'; then
           next="${WORKING[0]}"
@@ -933,6 +947,8 @@ function show-rr-resolutions
   fi
 }
 
+last_provenance='_not_a_provenance_'
+SKIPPED=()
 TO_DELETE=()
 function commit
 {
@@ -940,14 +956,29 @@ function commit
     rm -f "$file"
   done
   TO_DELETE=()
+  this_provenance="${PROVENANCE["$1"]}"
   if [[ -z "$(git status --porcelain)" ]]; then
     if git commit --allow-empty -m Empty &> /dev/null; then
       git reset --hard HEAD~1 &> /dev/null
     fi
     show-rr-resolutions "$cherry_stamp" "$(git rev-parse --short HEAD)"
+    if [[ $this_provenance != $last_provenance ]]; then
+      if [[ $this_provenance = ${this_provenance#@*} ]]; then
+        last_provenance="$this_provenance"
+        SKIPPED=("$1")
+      else
+        last_provenance='_not_a_provenance'
+        SKIPPED=()
+      fi
+    elif [[ ${#SKIPPED} -gt 0 ]]; then
+      SKIPPED+=("$1")
+    fi
     echo -e "  Commit skipped - it's empty"
     head="$(git rev-parse --short HEAD)"
   else
+    if [[ $this_provenance = $last_provenance ]]; then
+      SKIPPED=()
+    fi
     if ! git commit --reuse-message="$1" $4 &> _log; then
       cat _log
       rm _log
@@ -1052,6 +1083,11 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
               echo -e "Skipping \e[97m$sha\e[0m ($(provenance "$sha")) as it's older than $target - $(git log -n 1 --format=%s $sha)"
               WORKING+=("next $cmd")
             else
+              # XXX This may write more than is required - @ could be skipped)
+              prov="${PROVENANCE["$sha"]}"
+              if [[ -n $prov ]]; then
+                TOUCHED["$prov"]=1
+              fi
               WORKING+=("$cmd")
             fi;;
           adjust)
@@ -1061,6 +1097,7 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
               WORKING+=("next $cmd")
               echo -e "Skipping \e[34m${INSTR[2]}\e[0m as it's older than $target"
             else
+              TOUCHED["${INSTR[2]%%@*}"]=1
               count="${INSTR[1]}"
               if [[ $count -eq 0 ]]; then
                 POPPED=()
