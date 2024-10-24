@@ -196,7 +196,7 @@ if [[ -z $lock ]]; then
   #  - installation-tests
   #  - one-camlheader (merged)
 #  BRANCHES+=(windows-ln tools-vnum installation-tests windows-ln-5.0@fixup windows-ln-4.11@fixup one-camlheader-4.13@fixup~1)
-  BRANCHES+=(ocamlrun-config-env@trunk partial-revert-12108@trunk windows-ln@trunk installation-tests)
+  BRANCHES+=(tools-vnum@trunk ocamlrun-config-env@trunk partial-revert-12108@trunk windows-ln@trunk installation-tests)
   #  - target-bindir (merged)
 #  BRANCHES+=(target-bindir-5.0@fixup)
   #  - ld.conf-CRLF
@@ -209,22 +209,22 @@ if [[ -z $lock ]]; then
 #  BRANCHES+=(compiled-primitives-5.2@5.2 compiled-primitives-5.0@fixup compiled-primitives-4.12@fixup)
   #  - enable-relative (the first two commits are proposed for 5.4.0 in #13497 in caml_stat_strndup)
 #  BRANCHES+=(caml_stat_strndup enable-relative unified-enable-relative-5.0@fixup~1 unified-enable-relative-4.x@4.14@fixup unified-enable-relative-4.11@4.11@fixup cmmgen-4.09@fixup~1 unified-enable-relative-4.08@4.08@fixup)
-  BRANCHES+=(enable-relative)
+  BRANCHES+=(caml_stat_strndup@trunk caml_stat_strndup-5.3@5.3@fixup pr13285@5.2 enable-relative)
   #  - ld-warning (proposed for 5.4.0 in #13496)
 #  BRANCHES+=(ld-warning ld-warning-5.0@fixup)
   BRANCHES+=(ld-warning@trunk)
   #  - runtime-id
 #  BRANCHES+=(runtime-id runtime-id-5.0@fixup runtime-id-4.14@fixup runtime-id-4.13@fixup runtime-id-4.12@fixup runtime-id-4.11@fixup runtime-id-4.10@fixup runtime-id-4.09@fixup runtime-id-4.08@fixup)
-  BRANCHES+=(runtime-id)
+  BRANCHES+=(pr12896@5.2 runtime-id runtime-id-5.3@fixup runtime-id-5.2@fixup)
   #  - runtime-suffixing
 #  BRANCHES+=(runtime-suffixing unified-runtime-suffixing@trunk@fixup unified-runtime-suffixing-5.0@5.0@fixup unified-runtime-suffixing-4.14@4.14@fixup unified-runtime-suffixing-4.12@fixup unified-runtime-suffixing-4.11@fixup~1)
-#!  BRANCHES+=(runtime-suffixing unified-runtime-suffixing@trunk@fixup)
+  BRANCHES+=(runtime-suffixing)
   #  - camlheader-search
 #  BRANCHES+=(camlheader-search unified-camlheader-search@fixup~1 unified-camlheader-search-5.0@fixup~1 unified-camlheader-search-4.14@fixup~1 unified-camlheader-search-4.13@fixup~1 unified-camlheader-search-4.12@fixup~1 unified-camlheader-search-4.11@fixup~1 unified-camlheader-search-4.10@fixup~1)
-#!  BRANCHES+=(camlheader-search unified-camlheader-search@fixup~1)
+  BRANCHES+=(camlheader-search unified-camlheader-search@fixup~2 unified-relocatable-test@fixup~1)
 
   #TARGETS=(trunk 5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08)
-  TARGETS=(trunk)
+  TARGETS=(trunk 5.3 5.2)
 
   # Check the branches all exist and collect the commits to stack
   for instruction in "${BRANCHES[@]}"; do
@@ -368,7 +368,7 @@ if [[ ! -e $state_file ]]; then
       fi
       cmd="$cmd $commit"
       ((count++))
-    done < <(git log upstream/$upstream..${HEADS[$entry]} --format="%h %s" --reverse)
+    done < <(git log relocatable-base-$upstream..${HEADS[$entry]} --format="%h %s" --reverse)
     menu-info "$branch" "adjust $count $branch" "$cmd"
     COMMITS+=("adjust $count $branch$cmd")
   else
@@ -376,7 +376,8 @@ if [[ ! -e $state_file ]]; then
       head="${HEADS["$entry"]}"
       if [[ $(git merge-base 'upstream/trunk' "$head") = $head ]]; then
         # This PR has been merged
-        upstream="$base_trunk"
+        upstream="$(git merge-base "$(git rev-list --first-parent --reverse "$head..upstream/trunk" | head -n 1)" "$head")"
+        #upstream="$base_trunk"
       elif [[ -n $base_trunk && $(git merge-base "$base_trunk" "$head") = $base_trunk ]]; then
         upstream="$base_trunk"
       else
