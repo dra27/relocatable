@@ -318,6 +318,7 @@ fi
 # - TARGETS is an array of all the targets to make (trunk, 5.3, etc.)
 # - HEADS is an associative array mapping everything in BRANCHES to a sha
 
+declare -A PROVENANCE
 function menu-info
 {
   if [[ $menu = 'true' ]]; then
@@ -336,13 +337,19 @@ function menu-info
       done
     fi
     echo -ne '\e[0m'
+  elif [[ $2 != 'skip' ]]; then
+    for sha in $3; do
+      PROVENANCE[$sha]="$branch"
+    done
   fi
 }
 
 declare -A PICKED
+declare -A TOUCHED
 COMMANDS=()
 COMMITS=()
 WORKING=()
+base_trunk="${HEADS['relocatable-base-trunk']}"
 if [[ ! -e $state_file ]]; then
   if [[ -n "$(git status --porcelain)" ]]; then
     echo 'The working tree is not clean' >&2
@@ -366,11 +373,13 @@ if [[ ! -e $state_file ]]; then
   # branches.
   for entry in "${BRANCHES[@]}"; do
     upstream="${entry#*@}"
+    branch="${entry%%@*}"
     if [[ $upstream = $entry ]]; then
+      # $entry is just a branch name
       upstream='trunk'
     fi
-    branch="${entry%%@*}"
     if [[ $upstream =~ ^fixup(~[0-9])?$ ]]; then
+      # $entry is foo@fixup (single fixup with optional offset)
       count="${upstream#fixup~}"
       if [[ $count = $upstream ]]; then
         count=0
@@ -379,20 +388,42 @@ if [[ ! -e $state_file ]]; then
       menu-info "$branch" "adjust $count $entry" "$commit"
       COMMITS+=("adjust $count $entry $commit")
     elif [[ $upstream =~ @fixup$ ]]; then
-      upstream="${upstream%@fixup}"
-      cmd=''
-      count=-1
-      while read -r entry; do
-        commit="${entry%% *}"
-        if [[ $count -eq -1 && ${entry#* } = 'Basis' ]]; then
-          continue
+      # $entry is foo@upstream@fixup (fixups with root + optional Basis)
+  # upstream refers to upstream/$upstream (at the moment) (at the moment)
+    upstream="${upstream%@fixup}"
+    cmd=''
+    count=-1
+    while read -r entry; do
+      commit="${entry%% *}"
+      if [[ $count -eq -1 && ${entry#* } = 'Basis' ]]; then
+        continue
+      fi
+      cmd="$cmd $commit"
+      ((count++))
+    done < <(git log upstream/$upstream..${HEADS[$entry]} --format="%h %s" --reverse)
+    menu-info "$branch" "adjust $count $branch" "$cmd"
+    COMMITS+=("adjust $count $branch$cmd")
+  else
+    if [[ $upstream = 'trunk' ]]; then
+      head="${HEADS["$entry"]}"
+      if [[ $(git merge-base 'upstream/trunk' "$head") = $head ]]; then
+        # This PR has been merged
+        merge="$(git log --format='%H %P' --min-parents=2 upstream/trunk | grep -F " $head" | head -n 1 | cut -f1 -d' ')"
+        if [[ -z $merge ]]; then
+          echo "Graph interpretation error: $head is merged into upstream/trunk, but cannot find merge commit?">&2
+          exit 1
         fi
-        cmd="$cmd $commit"
-        ((count++))
-      done < <(git log upstream/$upstream..${HEADS[$entry]} --format="%h %s" --reverse)
-      menu-info "$branch" "adjust $count $branch" "$cmd"
-      COMMITS+=("adjust $count $branch$cmd")
+        upstream="$(git merge-base "$merge~1" "$head")"
+        #upstream="$base_trunk"
+      elif [[ -n $base_trunk && $(git merge-base "$base_trunk" "$head") = $base_trunk ]]; then
+        upstream="$base_trunk"
+      else
+        upstream='upstream/trunk'
+      fi
     else
+      #upstream="${HEADS["relocatable-base-$upstream"]}"
+      upstream="upstream/$upstream"
+    fi
       while read -r entry; do
         commit="${entry%% *}"
         bootstrap=0
@@ -420,7 +451,7 @@ if [[ ! -e $state_file ]]; then
             PICKED["$commit"]='1'
           fi
         fi
-      done < <(git log upstream/$upstream..${HEADS[$entry]} --format="%h %s" --reverse)
+      done < <(git log $upstream..${HEADS[$entry]} --format='%h %s' --reverse)
     fi
   done
 
@@ -456,12 +487,19 @@ else
         COMMANDS+=("$line");;
       target)
         target="${line#* }";;
+      target-branch)
+        target_branch="${line#* }";;
+      touched)
+        TOUCHED["${line#* }"]=1;;
       lock)
         echo "${line#* }" >> ../.stack-branches;;
       cherry-stamp)
         cherry_stamp="${line#* }";;
       start)
         start_time="${line#* }";;
+      provenance)
+        line="${line#* }"
+        PROVENANCE[${line% *}]="${line#* }";;
       *)
         echo "Unrecognised command: $line" >&2
         phase=2;;
@@ -497,15 +535,22 @@ fi
 
 function abort
 {
-  echo "Branch: $branch for $target"
+#  echo "Branch: $branch for $target"
   echo "  $action"
   {
+    for sha in "${!PROVENANCE[@]}"; do
+      echo "provenance $sha ${PROVENANCE[$sha]}"
+    done;
+    for branch in "${!TOUCHED[@]}"; do
+      echo "touched $branch"
+    done;
     echo "start $start_time"
     echo "cherry-stamp $cherry_stamp"
     for commit in "${COMMITS[@]}"; do
       echo "$commit"
     done;
     echo "target $target";
+    echo "target-branch $target_branch";
     echo "commit $instr";
     for instruction in "${BRANCHES[@]}" "${TARGETS[@]}"; do
       if [[ -z ${HEADS[$instruction]} ]]; then
@@ -516,6 +561,89 @@ function abort
     done
   } > "$state_file"
   aborting=1
+}
+
+function display-with-provenance
+{
+  local sha="$2"
+  local provenance="${PROVENANCE["$sha"]}"
+  if [[ ${provenance#@} = $provenance ]]; then
+    if [[ -z $provenance ]]; then
+      echo -e "$1 (\e[5;31mNo - we got no provenance\e[0m) $3"
+    else
+      echo -e "$1 (from \e[34m$provenance\e[0m) $3"
+    fi
+  else
+    local via=()
+    local fixups=()
+    if [[ ${provenance#*+} != $provenance ]]; then
+      fixups+=("${provenance#*+}")
+      provenance="${provenance%+*}"
+    fi
+    local chain="$provenance"
+    local last_provenance=''
+    if [[ ${PROVENANCE[@$sha]} != $target_branch ]]; then
+      last_provenance="${PROVENANCE[@$sha]}"
+      via+=($last_provenance)
+    fi
+    while [[ ${provenance#@} != $provenance ]]; do
+      sha="${provenance#@}"
+      if [[ ${PROVENANCE[$provenance]} != $last_provenance ]]; then
+        last_provenance="${PROVENANCE[$provenance]}"
+        if [[ -n $last_provenance ]]; then
+          via+=("$last_provenance")
+        fi
+      fi
+      provenance="${PROVENANCE["$sha"]}"
+      if [[ ${provenance#*+} != $provenance ]]; then
+        fixups+=("${provenance#*+}")
+        provenance="${provenance%+*}"
+      fi
+      chain="$chain -> $provenance"
+    done
+    case ${#via[@]} in
+      0) via_seg='';;
+      1) via_seg=" via \e[34m${via[0]}\e[0m";;
+      2) via_seg=" via \e[34m${via[0]}\e[0m -> \e[34m${via[1]}\e[0m";;
+      3) via_seg=" via \e[34m${via[0]}\e[0m -> \e[34m${via[1]}\e[0m -> \e[34m${via[2]}\e[0m";;
+      *)
+        local count=${#via[@]}
+        ((count-=2))
+        via_seg=" via \e[34m${via[0]}\e[0m -> ... \e[34m$count more\e[0m ... -> \e[34m${via[-1]}\e[0m";;
+    esac
+    if [[ -z $provenance ]]; then
+      provenance="\e[5;31m<broken provenance chain: $chain>\e[0m"
+    fi
+    if [[ ${#via[@]} -le 1 && ${#fixups[@]} -eq 0 ]]; then
+      echo -e "$1 (from \e[34m$provenance\e[0m$via_seg) $3"
+    else
+      echo -e "$1 $3"
+      case ${#fixups[@]} in
+        0)
+          echo -e "  from \e[34m$provenance\e[0m$via_seg";;
+        1)
+          echo -e "  from \e[34m$provenance\e[0m with \e[34m${PROVENANCE[${fixups[0]}]}\e[0m@\e[97m${fixups[0]}\e[0m$via_seg";;
+        *)
+          echo -ne "  from \e[34m$provenance\e[0m with"
+          local cycle=1
+          local sep=' '
+          for fixup in "${fixups[@]}"; do
+            if ((cycle % 3 == 0)); then
+              echo
+              echo -n '     '
+              sep='+ '
+            fi
+            echo -ne "$sep\e[34m${PROVENANCE[$fixup]}\e[0m@\e[97m$fixup\e[0m"
+            sep=' + '
+            ((cycle++))
+          done
+          echo
+          if [[ -n $via_seg ]]; then
+            echo -e "  $via_seg"
+          fi;;
+      esac
+    fi
+  fi
 }
 
 function reset-committer
@@ -539,12 +667,12 @@ function rebase
         COMMITS+=("$sha");;
       pick|fixup)
         if [[ $verb = 'fixup' ]]; then
-          echo "fixup $sha on $target ($(git log -n 1 --format=%s $sha))"
+          display-with-provenance "fixup \e[97m$sha\e[0m" "$sha" "on $target_branch - $(git log -n 1 --format='%s' $sha)"
           msg="$(git rev-parse --short HEAD)"
           amend='--amend'
           next=''
         else
-          echo "cherry-pick $sha to $target ($(git log -n 1 --format=%s $sha))"
+          display-with-provenance "cherry-pick \e[97m$sha\e[0m" "$sha" "to $target_branch - $(git log -n 1 --format='%s' $sha)"
           msg="$sha"
           amend=''
           next='pick $head'
@@ -553,15 +681,18 @@ function rebase
           commit "$msg" "$next" "$instr" "$amend"
         fi;;
       bootstrap)
-        echo "Bootstrap $target ($sha) on $(git rev-parse --short HEAD)"
+        bootstrap_msg="Bootstrap \e[97m$sha\e[0m to $target_branch ($(git rev-parse --short HEAD))"
+        display-with-provenance "Bootstrap \e[97m$sha\e[0m" "$sha" "to $target_branch ($(git rev-parse --short HEAD))"
         cached="$(git reflog --format='%h %p' | grep " $(git rev-parse --short HEAD)$" | head -n 1 | cut -f1 -d' ')"
         if [[ -n $cached ]] && git diff-tree --no-commit-id --name-only -r "$cached" | grep -Fq 'boot/ocaml'; then
           echo "Re-using previous bootstrap computation from $cached"
           git merge --ff-only $cached &> /dev/null
           COMMITS+=("bootstrap $cached")
+          PROVENANCE["$cached"]="@$sha"
+          PROVENANCE["@$cached"]="$target_branch"
         else
-          BOOTSTRAPS+=("Bootstrap $target ($sha) on $(git rev-parse --short HEAD)")
-          echo "Bootstrapping..."
+          BOOTSTRAPS+=("$bootstrap_msg")
+          echo "  Bootstrapping..."
           if ! ./configure --disable-native-compiler --disable-ocamldoc --disable-ocamltest --disable-debugger > _log 2>&1; then
             cat _log
             rm _log
@@ -599,12 +730,12 @@ function rebase
           fi
         fi;;
       coreboot)
-        coreboot="Coreboot $target ($sha) on $(git rev-parse --short HEAD)"
-        echo "$coreboot"
+        coreboot_msg="Coreboot \e[97m$sha\e[0m to $target_branch ($(git rev-parse --short HEAD)) - $(git log -n 1 --format='%s' $sha)"
+        display-with-provenance "Coreboot \e[97m$sha\e[0m" "$sha" "to $target_branch ($(git rev-parse --short HEAD)) - $(git log -n 1 --format='%s' $sha)"
         if cherry-pick "$sha" 'boot/ocaml*' 'Do _not_ bootstrap'; then
           next="${WORKING[0]}"
           if [[ ${next%% *} = 'fixup' ]]; then
-            echo "Skipping coreboot - next command is a fixup"
+            echo "  Deferring coreboot - next command is a fixup"
             if ! git commit --reuse-message="$sha" &> _log; then
               cat _log
               rm _log
@@ -614,10 +745,14 @@ function rebase
             else
               rm _log
               reset-committer
-              COMMITS+=("coreboot $(git rev-parse --short HEAD)")
+              head="$(git rev-parse --short HEAD)"
+              #PROVENANCE["$head"]="@$sha"
+              #PROVENANCE["@$head"]="$target_branch"
+              COMMITS+=("coreboot $head")
+              PROVENANCE["$head"]="@$sha"
             fi
           else
-            coreboot "$sha"
+            coreboot "$sha" "$coreboot_msg"
           fi
         fi;;
       *)
@@ -651,7 +786,7 @@ function reconfigure
     esac
   done < <(git diff --name-only --cached)
   if [[ reconfigure -eq 1 ]]; then
-    echo "configure.ac has been changed - regenerating configure"
+    echo -e "  \e[90mconfigure.ac has been changed - regenerating configure\e[0m"
     if [[ -e tools/autogen ]]; then
       autogen=tools/autogen
     else
@@ -750,15 +885,17 @@ function coreboot
         fi
       done < <(git reflog --format='%h %p' | grep " ${head_sha}\$" | cut -f1 -d' ' | sort | uniq)
       if [[ -n $combined ]] && git diff-tree --no-commit-id --name-only -r "$combined" | grep -Fq 'boot/ocaml'; then
-        echo "Re-using previous coreboot computation from $combined"
+        echo "  Re-using previous coreboot computation from $combined"
         git reset --hard $combined &> /dev/null
         if [[ $(git log -1 --format='%cn <%ce> on %cd') != $(git log -1 --format='%an <%ae> on %ad') ]]; then
           reset-committer
           new="$(git rev-parse --short HEAD)"
-          echo "Reset committer information on $combined to give $new"
+          echo "  Reset committer information on $combined to give $new"
           combined="$new"
         fi
         COMMITS+=("coreboot $combined")
+        PROVENANCE["$combined"]="@$1"
+        PROVENANCE["@$combined"]="$target_branch"
         return
       fi
     fi
@@ -770,8 +907,8 @@ function coreboot
       echo "configure failed: either fix or erase $state_file"
       return
     fi
-    BOOTSTRAPS+=("$coreboot")
-    echo 'Warming up...'
+    BOOTSTRAPS+=("$2")
+    echo '  Warming up...'
     if ! make -j coldstart > _log 2>&1; then
       cat _log
       rm _log
@@ -779,7 +916,8 @@ function coreboot
       echo "make coldstart failed: either fix or erase $state_file"
       return
     fi
-    echo 'Building...'
+    rm -f _log
+    echo '  Building...'
     if ! git merge --ff-only $code_sha &> /dev/null || \
        ! { if git diff-tree --no-commit-id --name-only -r "$code_sha" | grep -Fxq configure; then \
              ./configure --disable-native-compiler --disable-ocamldoc --disable-ocamltest --disable-debugger; \
@@ -796,7 +934,7 @@ function coreboot
       echo 'Do _not_ bootstrap'
       return
     fi
-    echo 'Bootstrapping...'
+    echo '  Bootstrapping...'
     if ! make -j bootstrap > _log 2>&1; then
       cat _log
       rm _log
@@ -828,6 +966,8 @@ function coreboot
         reset-committer
         head="$(git rev-parse --short HEAD)"
         COMMITS+=("coreboot $head")
+        PROVENANCE["$head"]="@$1"
+        PROVENANCE["@$head"]="$target_branch"
       fi
     fi
   fi
@@ -841,7 +981,7 @@ function show-rr-resolutions
       if [[ -n $in_tree ]]; then
         echo -e "  \e[90m$in_tree corrected using $file\e[0m"
       else
-        echo -e "  \e[31m$file\e[0m used, but cannot identify which file is affected (new commit is \e[97m$2\e[0m)"
+        echo -e "  \e[31m${file/post/\{pre,post\}}\e[0m used, but cannot identify which file is affected (new commit is \e[97m$2\e[0m)"
       fi
     done
   fi
@@ -859,7 +999,7 @@ function commit
       git reset --hard HEAD~1 &> /dev/null
     fi
     show-rr-resolutions "$cherry_stamp" "$(git rev-parse --short HEAD)"
-    echo "Commit $1 skipped for $target (empty)"
+    echo -e "  Commit skipped - it's empty"
     head="$(git rev-parse --short HEAD)"
   else
     if ! git commit --reuse-message="$1" $4 &> _log; then
@@ -872,6 +1012,13 @@ function commit
     rm -f _log
     reset-committer
     head="$(git rev-parse --short HEAD)"
+    if [[ ${3% *} = 'fixup' ]]; then
+      prev_sha="${COMMITS[-1]#* }"
+      PROVENANCE["$head"]="@$prev_sha+${3#* }"
+    else
+      PROVENANCE["$head"]="@$1"
+    fi
+    PROVENANCE["@$head"]="$target_branch"
     show-rr-resolutions "$cherry_stamp" "$head"
     #echo "Committed HEAD $head"
     if [[ -n $2 ]]; then
@@ -885,7 +1032,7 @@ function commit
   if [[ -z $2 ]]; then
     previous="${COMMITS[-1]}"
     if [[ ${previous%% *} = 'coreboot' ]]; then
-      echo "Repeating the previous coreboot"
+      echo "  Now executing deferred coreboot"
       # It's slightly simpler just repeat the coreboot commit rather than
       # threading this through the entire fixup logic that it needs to
       # coldstart with HEAD~1. The changes would either need stashing or
@@ -910,6 +1057,13 @@ function commit
 #  fi
 #done
 #exit 0
+
+# The main loop iterates over COMMANDS, which consists of branch commands and
+# possibly (if recovering from a failure) a commit command. Each branch pours
+# all the commands from COMMITS into WORKING (with any commits which are not yet
+# required buried in a next command). The rebase function then iterates over
+# the WORKING set which carries out the instructions while moving the results
+# back to COMMITS.
 
 BOOTSTRAP=()
 aborting=0
@@ -943,7 +1097,7 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
       fi;;
     branch)
       target_branch="backport-${arg#relocatable-base-}"
-      echo "Creating branch $target_branch"
+      echo -e "Creating branch \e[34m$target_branch\e[0m on \e[34m$arg\e[0m"
       target="$arg"
       WORKING=()
       for cmd in "${COMMITS[@]}"; do
@@ -952,18 +1106,42 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
         case "$verb" in
           pick|bootstrap|coreboot)
             if ! is-backport "$sha" "${HEADS[$target]}"; then
-              echo "Skipping $sha as it's older than $target ($(git log -n 1 --format=%s $sha))"
-              WORKING+=("next $cmd")
+              if is-backport "$sha" "$(merge-base 'upstream/trunk' "${HEADS[$target]}")"; then
+#                echo -e "Taking \e[97m$sha\e[0m ($(provenance "$sha")) by the new rule! - $(git log -n 1 --format=%s $sha)"
+                older=0
+              else
+                display-with-provenance "Skipping \e[97m$sha\e[0m" "$sha" "as it's older than $target - $(git log -n 1 --format=%s $sha)"
+                WORKING+=("next $cmd")
+                older=1
+              fi
             else
+              older=0
+            fi
+            if ((!older)); then
+              # This may write more than is required - @ could be skipped)
+              prov="${PROVENANCE["$sha"]}"
+              if [[ -n $prov ]]; then
+                TOUCHED["$prov"]=1
+              fi
               WORKING+=("$cmd")
             fi;;
           adjust)
             # INSTR[0] = adjust; INSTR[1] = count; INSTR[2] = description; INSTR[@]:3 = commits
             INSTR=($cmd)
             if ! is-backport "${INSTR[3]}" "${HEADS[$target]}"; then
-              WORKING+=("next $cmd")
-              echo "Skipping ${INSTR[2]} as it's older than $target"
+              if is-backport "${INSTR[3]}" "$(merge-base 'upstream/trunk' "${HEADS[$target]}")"; then
+#                echo -e "Taking \e[34m${INSTR[2]}\e[0m by the new rule!"
+                older=0
+              else
+                echo -e "Skipping \e[34m${INSTR[2]}\e[0m as it's older than $target"
+                WORKING+=("next $cmd")
+                older=1
+              fi
             else
+              older=0
+            fi
+            if ((!older)); then
+              TOUCHED["${INSTR[2]%%@*}"]=1
               count="${INSTR[1]}"
               # Remove $count items from WORKING (not counting fixup/next items)
               if [[ $count -eq 0 ]]; then
@@ -1038,7 +1216,7 @@ if [[ ${#BOOTSTRAPS[@]} -gt 0 ]]; then
   echo
   echo Bootstrap summary:
   for msg in "${BOOTSTRAPS[@]}"; do
-    echo " - $msg"
+    echo -e " - $msg"
   done
 fi
 
@@ -1093,6 +1271,20 @@ for root in "${TARGETS[@]}"; do
     fi
   fi
 done
+UNTOUCHED=()
+for branch in "${BRANCHES[@]}"; do
+  if [[ -z ${TOUCHED["${branch%%@*}"]} ]]; then
+    UNTOUCHED+=("$branch")
+  fi
+done
+if [[ ${#UNTOUCHED} -gt 0 ]]; then
+  echo
+  echo -e "\e[97m!!\e[0m \e[33mWARNING\e[0m \e[97m!!\e[0m These branches were unused:"
+  for branch in "${UNTOUCHED[@]}"; do
+    echo " - $branch"
+  done
+  echo
+fi
 
 if [[ ! -e $lock_index ]]; then
   exit 0
