@@ -313,6 +313,7 @@ function menu-info
 }
 
 declare -A PICKED
+declare -A TOUCHED
 COMMANDS=()
 COMMITS=()
 WORKING=()
@@ -450,6 +451,8 @@ else
         target="${line#* }";;
       target-branch)
         target_branch="${line#* }";;
+      touched)
+        TOUCHED["${line#* }"]=1;;
       lock)
         echo "${line#* }" >> ../.stack-branches;;
       cherry-stamp)
@@ -499,6 +502,9 @@ function abort
   {
     for sha in "${!PROVENANCE[@]}"; do
       echo "provenance $sha ${PROVENANCE[$sha]}"
+    done;
+    for branch in "${!TOUCHED[@]}"; do
+      echo "touched $branch"
     done;
     echo "start $start_time"
     echo "cherry-stamp $cherry_stamp"
@@ -1151,6 +1157,20 @@ for root in "${TARGETS[@]}"; do
     fi
   fi
 done
+UNTOUCHED=()
+for branch in "${BRANCHES[@]}"; do
+  if [[ -z ${TOUCHED["${branch%%@*}"]} ]]; then
+    UNTOUCHED+=("$branch")
+  fi
+done
+if [[ ${#UNTOUCHED} -gt 0 ]]; then
+  echo
+  echo -e "\e[97m!!\e[0m \e[33mWARNING\e[0m \e[97m!!\e[0m These branches were unused:"
+  for branch in "${UNTOUCHED[@]}"; do
+    echo " - $branch"
+  done
+  echo
+fi
 
 if [[ ! -e $lock_index ]]; then
   exit 0
