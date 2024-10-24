@@ -143,33 +143,33 @@ if [[ -z $lock ]]; then
   # fix-autogen appears first, since it affects any commit touching configure.
   # Part of #10254 allows overriding the autoconf command in autogen.
   # They don't need to go in branches, however.
-  BRANCHES=(fix-autogen@4.08 check-configure@4.12)
+#  BRANCHES=(fix-autogen@4.08 check-configure@4.12)
 
   # Existing patches in maintenance branches and in opam-repository
   # - Compatibility with -fno-common default in GCC 10 (#9180; 4.09.1)
   #   opam-repository carries a different patch; passing -fcommon to configure
-  BRANCHES+=(fcommon@4.08)
+#  BRANCHES+=(fcommon@4.08)
   # - SIGSTKSZ change in glibc 2.34 (#10266 and #10726; 4.13.0, 4.14.0)
   #   opam-repository carries this patch already
-  BRANCHES+=(sigaltstack sigaltstack-4.09@fixup)
+#  BRANCHES+=(sigaltstack sigaltstack-4.09@fixup)
   # - Correct configure script for 4.09.1
   #   configure wasn't regenerated; opam-repository carries this patch already
-  BRANCHES+=(fix-4.09.1-configure@4.09)
+#  BRANCHES+=(fix-4.09.1-configure@4.09)
 
   # Existing patch in maintenance branch and proposed for opam-repository
   # - Fix installing tools links when bytecode programs disabled
   #     (#8858; 4.09.1, 4.10.0)
   #   Permits the disabling of bytecode tool installation on 4.08+
-  BRANCHES+=(install-bytecode@4.08)
+#  BRANCHES+=(install-bytecode@4.08)
 
   # Existing patches in maintenance branches and proposed for opam-repository
   # - Allow the reconfigure target on Windows (#8996; 4.09.1, 4.10.0)
   #   **Critical**: graphics.4.08.0 and graphics.4.08.1 require it
-  BRANCHES+=(win-reconfigure@4.08)
+#  BRANCHES+=(win-reconfigure@4.08)
   # - Compatibility mingw-w64's ANSI stdio.h changes
   #     (#9939; 4.10.2, 4.11.2, 4.12.0)
   #   **Critical**: OCaml doesn't build with mingw-w64 headers 8.0.0+ otherwise
-  BRANCHES+=(mingw-headers@4.09)
+#  BRANCHES+=(mingw-headers@4.09)
 
   # Proposed back-ports to opam-repository only
   # - SUBST_STRING macro in utils/Makefile (from #8650; 4.10.0)
@@ -178,36 +178,36 @@ if [[ -z $lock ]]; then
   #   **Critical**: i686 mingw-w64 OCaml requires a runtime DLL not available by
   #                 default
   # - Update config.sub and config.guess (no PR; 4.12.0)
-  BRANCHES+=(makefile-tweaks@4.09 static-libgcc@4.11 config.guess@4.11 config.guess-4.09@4.09)
+#  BRANCHES+=(makefile-tweaks@4.09 static-libgcc@4.11 config.guess@4.11 config.guess-4.09@4.09)
 
   # Proposed back-ports to maintenance branches and opam-repository:
   # - Compatibility with binutils 2.36+ on mingw-w64 x64
   #     (#10351; 4.12.1, 4.13.0)
   #   **Critical**: fix in 4.12.1 is too high risk to back-port, this alters the
   #                 linker flags instead. mingw-w64 x64 is unusable without this
-  BRANCHES+=(fix-binutils-2.36@4.11)
+#  BRANCHES+=(fix-binutils-2.36@4.11)
   # - Compatibility with mingw-w64 headers 8.0.0 (#10062; 4.12.0)
   #   **Critical**: both mingw-w64 ports require this tweak for the headers to
   #                 behave correctly if user-code loads <stdio.h> (or other
   #                 headers pulling in mingw.h) before <caml/config.h>
-  BRANCHES+=(fix-mingw-lld@4.11)
+#  BRANCHES+=(fix-mingw-lld@4.11)
   # - Fix parallel generation of header programs (#2267 + #8626; 4.09.0)
   #   Prerequisite for faster-flexdll on 4.08 (and also fixes Cygwin compilation
   #   on 4.08)
-  BRANCHES+=(merge-headers@4.08)
+#  BRANCHES+=(merge-headers@4.08)
   # - FlexDLL bootstrapping overhaul (#10135; 4.13.0)
   #   Vastly improves the build performance and reliability on Windows.
   #   Simplifies the packaging for ocaml-base-compiler.
-  BRANCHES+=(faster-flexdll-4.12@4.12 faster-flexdll-4.11@4.11@fixup faster-flexdll-4.08@4.08@fixup)
+#  BRANCHES+=(faster-flexdll-4.12@4.12 faster-flexdll-4.11@4.11@fixup faster-flexdll-4.08@4.08@fixup)
   # - Add --disable-stdlib-manpages to configure (#8835 and #9335; 4.11.0)
   #   --disable-stdlib-manpages was added in 4.10.0 but broken by the time of
   #   release. The build is very time-consuming, especially on Windows, so this
   #   is recommended to allow the Windows configuration to use it
-  BRANCHES+=(fix-stdlib-manpages-4.09@4.09 fix-stdlib-manpages@4.10)
+#  BRANCHES+=(fix-stdlib-manpages-4.09@4.09 fix-stdlib-manpages@4.10)
   # - Add --disable-ocamltest to configure (#9250; 4.11.0)
   #   ocamltest is never installed, but the build uses time and resources.
   #   Propose back-porting this to save time on older compiler builds.
-  BRANCHES+=(disable-ocamltest@4.10)
+#  BRANCHES+=(disable-ocamltest@4.10)
 
   # These all simplify the testing infrastructure, but aren't required:
   # - Add --enable-warn-error (from #9625; 4.12.0)
@@ -219,15 +219,15 @@ if [[ -z $lock ]]; then
   #     (#9686; 4.12.0)
   # - autoconf tweaks (#8639; 4.11.0)
   # - fix tools/check-symbol-names (#9260; 4.11.0)
-  BRANCHES+=(win32-safe-string@4.08 _integral_max_bits@4.11 declaration-after-statement@4.14 warn-error@4.11 make-default-target@4.09 autoconf-tweak@4.10 autoconf-tweak-4.09@fixup~1 runtime_name_escape@4.10)
+#  BRANCHES+=(win32-safe-string@4.08 _integral_max_bits@4.11 declaration-after-statement@4.14 warn-error@4.11 make-default-target@4.09 autoconf-tweak@4.10 autoconf-tweak-4.09@fixup~1 runtime_name_escape@4.10)
 
   # - CI tweaks and backports
-  BRANCHES+=(improve-depend-from-scratch@4.09 ocamltest 32bit-gha-test@5.0 github-attributes@4.11 ocamltest-4.14@4.14 ocamltest-4.12@4.12 ocamltest-4.11@4.11 ocamltest-tweak@4.11 ocamltest-4.09@fixup~2 fix-test-4229@4.09 ocamltest-4.08@4.08 faster-appveyor@4.10)
+#  BRANCHES+=(improve-depend-from-scratch@4.09 ocamltest 32bit-gha-test@5.0 github-attributes@4.11 ocamltest-4.14@4.14 ocamltest-4.12@4.12 ocamltest-4.11@4.11 ocamltest-tweak@4.11 ocamltest-4.09@fixup~2 fix-test-4229@4.09 ocamltest-4.08@4.08 faster-appveyor@4.10)
 
   # This slightly simplifies the patch rebasing infrastructure, as it stops
   # configure from being completely rejected
   # - Ensure that configure can be patched (#9847; 4.12.0)
-  BRANCHES+=(no-configure@4.11)
+#  BRANCHES+=(no-configure@4.11)
 
   # Back-ports
   # NB These back-ports have been selected to ease the back-porting of the main
@@ -246,34 +246,129 @@ if [[ -z $lock ]]; then
   # - Add runtime/build_config.h (from #10451; 4.13.0)
   # - Simplification of ocamlcp/ocamloptp processing (#1941; 4.09.0)
   # - Share argument implementations (from #8992; 4.10.0)
-  BRANCHES+=(ext_exe@4.11 shebang@4.09 c89_headers@4.10 rename_T_macro@4.08 use-runtime-evil@4.14 use-runtime-evil-fixup@fixup ocamlrun-config@4.12 ocamlmklibconfig-cleanup@4.12 unix-realpath@4.12 build_config@4.12 build_config-4.11@fixup build_config-4.08@fixup ocamlc-dedup3@4.08 shared_args-4.09@4.09 shared_args-4.08@4.08)
+#  BRANCHES+=(ext_exe@4.11 shebang@4.09 c89_headers@4.10 rename_T_macro@4.08 use-runtime-evil@4.14 use-runtime-evil-fixup@fixup ocamlrun-config@4.12 ocamlmklibconfig-cleanup@4.12 unix-realpath@4.12 build_config@4.12 build_config-4.11@fixup build_config-4.08@fixup ocamlc-dedup3@4.08 shared_args-4.09@4.09 shared_args-4.08@4.08)
+
+  # PRs from the original relocatable set which are now merged
+  # - #12726 (5.2.0) - fixed by @nojb but a similar fix had been in misc-win-fixes
+  #     22e7c76fe87df895f5dd202b53885abed9832fd5 10-Nov-2023
+  # - #12896 (5.3.0) - compiled-primitives
+  #     733c2c58341302949ce5598273f7679222abef85 16-Jan-2024
+  # - #12751 (5.3.0; 5.2.0) - one-camlheader and target-bindir
+  #     733c2c58341302949ce5598273f7679222abef85 2-Feb-2024
+  # - #13279 (5.3.0) - tools-vnum **not included in the back-ports**
+  #     61b971d4eca0acda1327771f64dd0c52ff1376e3 4-Jul-2024
+  # - #13492 (5.4.0) - ocamlrun-config-env (was in misc-win-fixes)
+  #     e30d23feaace434e9d85d81b9103e4bb2f6caf66 30-Sep-2024
+  # - #13520 (5.4.0; 5.3.0; 5.2.1) - partial-revert-12108 (was in installation-tests) **might be needed for 5.1?**
+  #     8f8ee0a9d0c318d39ea7156838d1783263223d4a 23-Oct-2024
+  # - #13496 (5.4.0) - ld-warning **not included in the back-ports**
+  #     718a664b2627c9b086f213f0341399175b3a8da3 5-Nov-2024
+  # - #13494 (5.4.0) - windows-ln
+  #     b204bc49ea54cf6ef6bcec0ffaa511b06021f665 9-Jan-2025
+  # - #13497 (5.4.0) - caml_stat_strndup
+  #     be96495a3fa52166793faf3aaf20a1f5b3cfa0a2 22-Jan-2025
+  # PRs which are in-flight:
+  # - #13723 (5.4.0?) - flexlink-FLEXDIR
+  # - #13728 (5.4.0?) - Sys.interpreter
+
+  # Branch Structure
+  # - relocatable-base-trunk is the consolidation point during upstreaming and
+  #   gets moved with each merge, until eventually it is unnecessary.
+  # - relocatable-base-x.y contains a single commit on upstream/x.y which
+  #   changes the version of the compiler for this branch. Any commits on these
+  #   branches are not backported to previous versions.
+  # - relocatable-backports-x.y contains everything added between release x.y
+  #   and the release after it. i.e. if a required branch was merged in 5.2 then
+  #   the commits are put into relocatable-backports-5.1. They do not need to be
+  #   put in relocatable-backports-5.0 as that's automatically handled as part
+  #   of rebasing the consolidated commit series 5.1. It should be based on the
+  #   same upstream/x.y commit as relocatable-base-x.y.
+  # XXX TODO Would be
+  # which should both be based on the same commit on the target upstream
+  # maintenance branch. The relocatable-base- branch contains everything merged into trunk which needs
+  # to be backported to this version. The relocatable-testing- branch contains
+  # editing commits applied to the main relocatable-testing branch (e.g. version
+  # number updates).
+  # ...
+  # XXX Branches while in development sit on relocatable-testing
+  # XXX not relocatable-testing-5.3 but rather relocatable-version-5.3
+  # XXX relocatable-base-5.3 must be a commit with nothing that needs backport
+  # XXX Might introduce relocatable-testing-x.y if that becomes necessary - i.e. a place to put the branches which are definitely needed for testing
+  #     but ought to disappear in the actual upstreaming.
+
+  # Notes:
+  # - When ld.conf-search when rebasing to 5.1 will want to pull in the commits from the original
+  #   version
+  # - When enable-relative is rebased back past #12108 (5.1.0) the variables in Makefile.common will need to be renamed (similarly with Makefile merges)
+  # - runtime-suffixed may require #13019 as an easier backport (systhreads flags)
 
   # Branches
-  #  - misc-win-fixes
-  #  - windows-ln
-  #  - one-camlheader
-  BRANCHES+=(misc-win-fixes windows-ln windows-ln-5.0@fixup windows-ln-4.11@fixup one-camlheader one-camlheader-4.13@fixup~1)
-  #  - target-bindir
-  BRANCHES+=(target-bindir target-bindir-5.0@fixup)
+  #  - misc-win-fixes (dispatched to separate PRs)
+  #  - partial-revert-12108 (proposed for 5.1.2/5.2.1/5.3.0 in #13520)
+  #  - windows-ln (proposed for 5.4.0 in #13494)
+  #  - tools-vnum (merged)
+  #  - installation-tests
+  #  - one-camlheader (merged)
+  # XXX This is first because it affects part of the backports, but only in CI terms
+#  BRANCHES+=(relocatable-backports-5.1@5.1 relocatable-backports-5.2@5.2 relocatable-backports-5.3@5.3 relocatable-testing)
+  # XXX Decision to take on the backporting for appveyor-configure ... it's a CI
+  #     improvement... that may just be best done on the standard rebase?
+  # XXX cygwin-bootstrap is likely to be backported to upstream/5.2 and upstream/5.3 anyway
+  # XXX cygwin-3.5.5 is temporary to pin 5.3 and earlier back to Cygwin 3.5.4 (removed)
+  # XXX relocatable-testing is merged into installation-tests at the moment
+  # XXX reproducible-cmt is temporarily in-place for 5.3 and earlier - the test should in reality be updated to cope
+  BRANCHES+=(relocatable-backports-5.2@5.2 relocatable-backports-5.3@5.3 relocatable-backports-5.4@5.4 appveyor-configure appveyor-configure-fix@fixup cygwin-bootstrap apt-update)
+#  BRANCHES+=(windows-ln tools-vnum installation-tests windows-ln-5.0@fixup windows-ln-4.11@fixup one-camlheader-4.13@fixup~1)
+# XXX TODO -> relocatable-backports-5.3 (order above - not sure if tools-vnum needed yet) BRANCHES+=(tools-vnum@trunk ocamlrun-config-env@trunk partial-revert-12108@trunk windows-ln@trunk)
+# XXX When merged, Sys.interpreter-5.3 folds into the backport, obviously. Actually no: Sys.interpreter will fold into the installation-tests backport
+# XXX flexlink-FLEXLINK is merged
+  BRANCHES+=(reproducible-cmt@trunk Sys.interpreter@trunk Sys.interpreter-5.3@fixup installation-tests installation-tests-5.4@fixup~7 installation-tests-5.3@fixup~7 installation-tests-5.2@fixup~3)
+  #  - target-bindir (merged)
+#  BRANCHES+=(target-bindir-5.0@fixup)
   #  - ld.conf-CRLF
   #  - ld.conf-search
-  BRANCHES+=(ld.conf-CRLF ld.conf-search)
+#  BRANCHES+=(ld.conf-CRLF ld.conf-search)
   #  - ld.conf-relative
-  BRANCHES+=(ld.conf-relative unified-ld.conf-relative@4.14)
-  #  - compiled-primitives
-  BRANCHES+=(compiled-primitives compiled-primitives-5.0@fixup compiled-primitives-4.12@fixup)
-  #  - enable-relative
-  BRANCHES+=(enable-relative unified-enable-relative@fixup~1 unified-enable-relative-5.0@fixup~1 unified-enable-relative-4.x@4.14@fixup unified-enable-relative-4.11@4.11@fixup cmmgen-4.09@fixup~1 unified-enable-relative-4.08@4.08@fixup)
-  #  - ld-warning
-  BRANCHES+=(ld-warning ld-warning-5.0@fixup)
+#  BRANCHES+=(ld.conf-relative unified-ld.conf-relative@4.14)
+#  BRANCHES+=(ld.conf-relative)
+  BRANCHES+=(ld.conf)
+  #  - compiled-primitives (merged)
+#  BRANCHES+=(compiled-primitives-5.2@5.2 compiled-primitives-5.0@fixup compiled-primitives-4.12@fixup)
+  #  - enable-relative (the first two commits are proposed for 5.4.0 in #13497 in caml_stat_strndup)
+#  BRANCHES+=(caml_stat_strndup enable-relative unified-enable-relative-5.0@fixup~1 unified-enable-relative-4.x@4.14@fixup unified-enable-relative-4.11@4.11@fixup cmmgen-4.09@fixup~1 unified-enable-relative-4.08@4.08@fixup)
+  BRANCHES+=(enable-relative unified-enable-relative@trunk@fixup)
+  #  - ld-warning (proposed for 5.4.0 in #13496)
+#  BRANCHES+=(ld-warning ld-warning-5.0@fixup)
+# This disappears permanently at the next rebase
+#  BRANCHES+=(ld-warning@trunk)
   #  - runtime-id
-  BRANCHES+=(runtime-id runtime-id-5.0@fixup runtime-id-4.14@fixup runtime-id-4.13@fixup runtime-id-4.12@fixup runtime-id-4.11@fixup runtime-id-4.10@fixup runtime-id-4.09@fixup runtime-id-4.08@fixup)
+#  BRANCHES+=(runtime-id runtime-id-5.0@fixup runtime-id-4.14@fixup runtime-id-4.13@fixup runtime-id-4.12@fixup runtime-id-4.11@fixup runtime-id-4.10@fixup runtime-id-4.09@fixup runtime-id-4.08@fixup)
+# removed compiled-primitives@5.2 runtime-id-5.3@fixup runtime-id-5.2@fixup
+#  BRANCHES+=(runtime-id)
   #  - runtime-suffixing
-  BRANCHES+=(runtime-suffixing unified-runtime-suffixing@trunk@fixup unified-runtime-suffixing-5.0@5.0@fixup unified-runtime-suffixing-4.14@4.14@fixup unified-runtime-suffixing-4.12@fixup unified-runtime-suffixing-4.11@fixup~1)
+#  BRANCHES+=(runtime-suffixing unified-runtime-suffixing@trunk@fixup unified-runtime-suffixing-5.0@5.0@fixup unified-runtime-suffixing-4.14@4.14@fixup unified-runtime-suffixing-4.12@fixup unified-runtime-suffixing-4.11@fixup~1)
+#  BRANCHES+=(runtime-suffixing)
   #  - camlheader-search
-  BRANCHES+=(camlheader-search unified-camlheader-search@fixup~1 unified-camlheader-search-5.0@fixup~1 unified-camlheader-search-4.14@fixup~1 unified-camlheader-search-4.13@fixup~1 unified-camlheader-search-4.12@fixup~1 unified-camlheader-search-4.11@fixup~1 unified-camlheader-search-4.10@fixup~1)
+#  BRANCHES+=(camlheader-search unified-camlheader-search@fixup~1 unified-camlheader-search-5.0@fixup~1 unified-camlheader-search-4.14@fixup~1 unified-camlheader-search-4.13@fixup~1 unified-camlheader-search-4.12@fixup~1 unified-camlheader-search-4.11@fixup~1 unified-camlheader-search-4.10@fixup~1)
+#  BRANCHES+=(runtime-searching unified-relocatable-test@trunk@fixup)
+  BRANCHES+=(runtime-searching unified-relocatable-test@fixup~6)
 
-  TARGETS=(trunk 5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08)
+  BRANCHES+=(stop-backporting)
+
+# XXX Temporary, in order to straighten out both unified-relative and installation-tests on a combined branch
+  BRANCHES+=(launcher-fixes)
+  BRANCHES+=(empty-env unified-empty-env@fixup)
+  BRANCHES+=(dynamic-tidying)
+  BRANCHES+=(set-runtime-default unified-set-runtime-default@fixup~5)
+  BRANCHES+=(installation-tests2 unified-installation-tests2@fixup~5)
+
+  #TARGETS=(trunk 5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08)
+  TARGETS=(trunk 5.4 5.3 5.2)
+
+  # XXX This somewhat ridiculous hack assembles the basis branch for the
+  #     remaining PRs to give the current version of installation-tests
+  #TARGETS=(trunk)
+  #BRANCHES=(in-prefix-test relocatable-testing)
 
   # Check the branches all exist and collect the commits to stack
   for instruction in "${BRANCHES[@]}"; do
