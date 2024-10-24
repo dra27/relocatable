@@ -731,6 +731,7 @@ function coreboot
     rm _log
     reset-committer
     code_sha="$(git rev-parse --short HEAD)"
+    show-rr-resolutions "$cherry_stamp" "$head"
     cached="$(git reflog --format='%h %p' | grep " ${code_sha}\$" | head -n 1 | cut -f1 -d' ')"
     if [[ -n $cached ]] && git diff-tree --no-commit-id --name-only -r "$cached" | grep -Fq 'boot/ocaml'; then
       # This code commit has a bootstrap parent - so we can search for a unified commit
