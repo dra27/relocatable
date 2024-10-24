@@ -574,6 +574,25 @@ function is-backport
   return 1
 }
 
+function provenance
+{
+  local sha="$1"
+  local provenance="${PROVENANCE["$sha"]}"
+  local result=''
+  if [[ ${provenance#@} = $provenance ]]; then
+    result='from'
+    # XXX This @ stuff is the beginnings of showing the provenance while constructing the backports
+    #     but it's not yet right (erroneously started doing the coreboot stuff)
+    while [[ ${provenance#@} != $provenance ]]; do
+      result="$result -> $sha on ${PROVENANCE["@$sha"]}"
+      sha="${provenance#@}"
+      provenance="${PROVENANCE["$sha"]}"
+    done
+    result="$result $provenance"
+    echo -ne "\e[34m${result# }\e[0m"
+  fi
+}
+
 function reset-committer
 {
   if ! git rebase --committer-date-is-author-date HEAD~1 &> /dev/null; then
@@ -655,7 +674,7 @@ function rebase
           fi
         fi;;
       coreboot)
-        echo -e "Coreboot $target_branch (\e[97m$sha\e[0m from \e[34m${PROVENANCE[$sha]}\e[0m) on $(git rev-parse --short HEAD)"
+        echo -e "Coreboot $target_branch (\e[97m$sha\e[0m$(provenance "$sha")) on $(git rev-parse --short HEAD) - $(git log -n 1 --format='%s' $sha)"
         if cherry-pick "$sha" 'boot/ocaml*' 'Do _not_ bootstrap'; then
           next="${WORKING[0]}"
           if [[ ${next%% *} = 'fixup' ]]; then
@@ -671,7 +690,10 @@ function rebase
             else
               rm _log
               reset-committer
-              COMMITS+=("coreboot $(git rev-parse --short HEAD)")
+              head="$(git rev-parse --short HEAD)"
+              #PROVENANCE["$head"]="@$sha"
+              #PROVENANCE["@$head"]="$target_branch"
+              COMMITS+=("coreboot $head")
             fi
           else
             coreboot "$sha"
@@ -937,6 +959,8 @@ function commit
     rm -f _log
     reset-committer
     head="$(git rev-parse --short HEAD)"
+    PROVENANCE["$head"]="@$1"
+    PROVENANCE["@$head"]="$target_branch"
     show-rr-resolutions "$cherry_stamp" "$head"
     #echo "Committed HEAD $head"
     if [[ -n $2 ]]; then
@@ -1025,7 +1049,7 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
         case "$verb" in
           pick|bootstrap|coreboot)
             if ! is-backport "$sha" "${HEADS[$target]}"; then
-              echo -e "Skipping \e[97m$sha\e[0m (from \e[34m${PROVENANCE[$sha]}\e[0m) as it's older than $target - $(git log -n 1 --format=%s $sha)"
+              echo -e "Skipping \e[97m$sha\e[0m ($(provenance "$sha")) as it's older than $target - $(git log -n 1 --format=%s $sha)"
               WORKING+=("next $cmd")
             else
               WORKING+=("$cmd")
