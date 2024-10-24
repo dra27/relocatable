@@ -265,13 +265,13 @@ if [[ -z $lock ]]; then
 #  BRANCHES+=(compiled-primitives-5.2@5.2 compiled-primitives-5.0@fixup compiled-primitives-4.12@fixup)
   #  - enable-relative (the first two commits are proposed for 5.4.0 in #13497 in caml_stat_strndup)
 #  BRANCHES+=(caml_stat_strndup enable-relative unified-enable-relative-5.0@fixup~1 unified-enable-relative-4.x@4.14@fixup unified-enable-relative-4.11@4.11@fixup cmmgen-4.09@fixup~1 unified-enable-relative-4.08@4.08@fixup)
-  BRANCHES+=(caml_stat_strndup@trunk caml_stat_strndup-5.3@5.3@fixup pr13285@5.2 enable-relative)
+  BRANCHES+=(caml_stat_strndup@trunk caml_stat_strndup-5.3@5.3@fixup merge-dynlink-makefile@5.2 enable-relative)
   #  - ld-warning (proposed for 5.4.0 in #13496)
 #  BRANCHES+=(ld-warning ld-warning-5.0@fixup)
   BRANCHES+=(ld-warning@trunk)
   #  - runtime-id
 #  BRANCHES+=(runtime-id runtime-id-5.0@fixup runtime-id-4.14@fixup runtime-id-4.13@fixup runtime-id-4.12@fixup runtime-id-4.11@fixup runtime-id-4.10@fixup runtime-id-4.09@fixup runtime-id-4.08@fixup)
-  BRANCHES+=(pr12896@5.2 runtime-id runtime-id-5.3@fixup runtime-id-5.2@fixup)
+  BRANCHES+=(compiled-primitives@5.2 runtime-id runtime-id-5.3@fixup runtime-id-5.2@fixup)
   #  - runtime-suffixing
 #  BRANCHES+=(runtime-suffixing unified-runtime-suffixing@trunk@fixup unified-runtime-suffixing-5.0@5.0@fixup unified-runtime-suffixing-4.14@4.14@fixup unified-runtime-suffixing-4.12@fixup unified-runtime-suffixing-4.11@fixup~1)
   BRANCHES+=(runtime-suffixing)
@@ -424,7 +424,7 @@ if [[ ! -e $state_file ]]; then
       fi
       cmd="$cmd $commit"
       ((count++))
-    done < <(git log relocatable-base-$upstream..${HEADS[$entry]} --format="%h %s" --reverse)
+    done < <(git log upstream/$upstream..${HEADS[$entry]} --format="%h %s" --reverse)
     menu-info "$branch" "adjust $count $branch" "$cmd"
     COMMITS+=("adjust $count $branch$cmd")
   else
@@ -432,7 +432,12 @@ if [[ ! -e $state_file ]]; then
       head="${HEADS["$entry"]}"
       if [[ $(git merge-base 'upstream/trunk' "$head") = $head ]]; then
         # This PR has been merged
-        upstream="$(git merge-base "$(git rev-list --first-parent --reverse "$head..upstream/trunk" | head -n 1)" "$head")"
+        merge="$(git log --format='%H %P' --min-parents=2 upstream/trunk | grep -F " $head" | head -n 1 | cut -f1 -d' ')"
+        if [[ -z $merge ]]; then
+          echo "Graph interpretation error: $head is merged into upstream/trunk, but cannot find merge commit?">&2
+          exit 1
+        fi
+        upstream="$(git merge-base "$merge~1" "$head")"
         #upstream="$base_trunk"
       elif [[ -n $base_trunk && $(git merge-base "$base_trunk" "$head") = $base_trunk ]]; then
         upstream="$base_trunk"
@@ -1093,9 +1098,18 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
         case "$verb" in
           pick|bootstrap|coreboot)
             if ! is-backport "$sha" "${HEADS[$target]}"; then
-              echo -e "Skipping \e[97m$sha\e[0m ($(provenance "$sha")) as it's older than $target - $(git log -n 1 --format=%s $sha)"
-              WORKING+=("next $cmd")
+              if is-backport "$sha" "$(merge-base 'upstream/trunk' "${HEADS[$target]}")"; then
+#                echo -e "Taking \e[97m$sha\e[0m ($(provenance "$sha")) by the new rule! - $(git log -n 1 --format=%s $sha)"
+                older=0
+              else
+                echo -e "Skipping \e[97m$sha\e[0m ($(provenance "$sha")) as it's older than $target - $(git log -n 1 --format=%s $sha)"
+                WORKING+=("next $cmd")
+                older=1
+              fi
             else
+              older=0
+            fi
+            if ((!older)); then
               # XXX This may write more than is required - @ could be skipped)
               prov="${PROVENANCE["$sha"]}"
               if [[ -n $prov ]]; then
@@ -1107,9 +1121,18 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
             # INSTR[0] = adjust; INSTR[1] = count; INSTR[2] = description; INSTR[@]:3 = commits
             INSTR=($cmd)
             if ! is-backport "${INSTR[3]}" "${HEADS[$target]}"; then
-              WORKING+=("next $cmd")
-              echo -e "Skipping \e[34m${INSTR[2]}\e[0m as it's older than $target"
+              if is-backport "${INSTR[3]}" "$(merge-base 'upstream/trunk' "${HEADS[$target]}")"; then
+#                echo -e "Taking \e[34m${INSTR[2]}\e[0m by the new rule!"
+                older=0
+              else
+                echo -e "Skipping \e[34m${INSTR[2]}\e[0m as it's older than $target"
+                WORKING+=("next $cmd")
+                older=1
+              fi
             else
+              older=0
+            fi
+            if ((!older)); then
               TOUCHED["${INSTR[2]%%@*}"]=1
               count="${INSTR[1]}"
               if [[ $count -eq 0 ]]; then
