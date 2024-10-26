@@ -831,11 +831,70 @@ function reconfigure
   fi
 }
 
+function rerere-hash
+{
+  # This facility is crude, but it should be adequate to compute rerere hashes
+  awk -f- "$1" <<'EOF'
+/^(<<<<<<<|=======)/ {
+  in_hunk++;
+  next;
+}
+
+/^>>>>>>>/ {
+  if (one > two) {
+    printf("%s\0%s\0", two, one);
+  } else {
+    printf("%s\0%s\0", one, two);
+  }
+  in_hunk=0;
+  one="";
+  two="";
+  next;
+}
+
+{
+  if (in_hunk == 1) {
+    one = one $0 "\n";
+  } else if (in_hunk == 2) {
+    two = two $0 "\n";
+  }
+}
+EOF
+}
+
 function cherry-pick
 {
+  unset RERERE
+  declare -gA RERERE
+  local conflicts=0
   cherry_stamp="$(date '+%Y-%m-%d %H:%M:%S.%N')"
-  sleep 0.01
-  git cherry-pick --no-commit "$1" >& /dev/null
+  # Initially cherry-pick without using rerere
+  git -c rerere.enabled=false cherry-pick --no-commit "$1" &> /dev/null
+  # Now scan the status for any files with conflicts and, if found, compute
+  # the rerere hash
+  while read -r status; do
+    file=${status:3}
+    case ${status:0:2} in
+      UU|AA)
+        if grep -q '^<<<<<' "$file" ; then
+          rerere_hash=$(rerere-hash "$file" | sha1sum | cut -f1 -d' ')
+          if [[ -n ${RERERE[$rerere_hash]} ]]; then
+            # Conflicting IDs - assume stronger matching here
+            RERERE[$rerere_hash]='*'
+          else
+            RERERE[$rerere_hash]=$file
+          fi
+          conflicts=1
+        fi;;
+    esac
+  done < <(git status --porcelain 2>/dev/null)
+  # Only if there were conflicts, repeat the cherry-pick, this time with rerere
+  # turned on.
+  if ((conflicts)); then
+    git reset --hard HEAD &> /dev/null
+    sleep 0.01
+    git cherry-pick --no-commit "$1" &> /dev/null
+  fi
   git reset -- Changes $2 &> /dev/null
   git checkout -- Changes $2 &> /dev/null
   if reconfigure; then
@@ -991,11 +1050,17 @@ function show-rr-resolutions
 {
   if [[ -d ../.git/modules/ocaml/rr-cache ]]; then
     for file in $(find ../.git/modules/ocaml/rr-cache -type f -newermt "$1" -name postimage\*); do
-      in_tree="$(git ls-tree -r "$(git log -1 --format='%T' "$2")" | sed -ne 's/^[^ ]* [^ ]* '"$(git hash-object $file)"'\t//p')"
-      if [[ -n $in_tree ]]; then
-        echo -e "  \e[90m$in_tree corrected using $file\e[0m"
+      rr_cache_hash="$(basename "$(dirname "$file")")"
+      in_tree="${RERERE[$rr_cache_hash]}"
+      if [[ $in_tree = '*' ]]; then
+        # Several files collide over this resolution. Hope that the match is
+        # exact, rather than having to resort to a 3-way merge test
+        in_tree="$(git ls-tree -r "$(git log -1 --format='%T' "$2")" | sed -ne 's/^[^ ]* [^ ]* '"$(git hash-object $file)"'\t//p')"
+      fi
+      if [[ -z $in_tree ]]; then
+        echo -e "  \e[31mUnclear why $file was used\e[0m"
       else
-        echo -e "  \e[31m${file/post/\{pre,post\}}\e[0m used, but cannot identify which file is affected (new commit is \e[97m$2\e[0m)"
+        echo -e "  \e[90m$in_tree corrected using $file\e[0m";;
       fi
     done
   fi
