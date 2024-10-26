@@ -1060,7 +1060,15 @@ function show-rr-resolutions
       if [[ -z $in_tree ]]; then
         echo -e "  \e[31mUnclear why $file was used\e[0m"
       else
-        echo -e "  \e[90m$in_tree corrected using $file\e[0m";;
+        case "$in_tree" in
+          configure|Changes)
+            # Changes is automatically stubbed out during cherry-picking and
+            # configure is always regenerated anyway if dependencies are touched
+            # byt ehc ommit, so rerere isn't adding much.
+            ;;
+          *)
+            echo -e "  \e[90m$in_tree corrected using $file\e[0m";;
+        esac
       fi
     done
   fi
