@@ -389,41 +389,42 @@ if [[ ! -e $state_file ]]; then
       COMMITS+=("adjust $count $entry $commit")
     elif [[ $upstream =~ @fixup$ ]]; then
       # $entry is foo@upstream@fixup (fixups with root + optional Basis)
-  # upstream refers to upstream/$upstream (at the moment) (at the moment)
-    upstream="${upstream%@fixup}"
-    cmd=''
-    count=-1
-    while read -r entry; do
-      commit="${entry%% *}"
-      if [[ $count -eq -1 && ${entry#* } = 'Basis' ]]; then
-        continue
-      fi
-      cmd="$cmd $commit"
-      ((count++))
-    done < <(git log upstream/$upstream..${HEADS[$entry]} --format="%h %s" --reverse)
-    menu-info "$branch" "adjust $count $branch" "$cmd"
-    COMMITS+=("adjust $count $branch$cmd")
-  else
-    if [[ $upstream = 'trunk' ]]; then
-      head="${HEADS["$entry"]}"
-      if [[ $(git merge-base 'upstream/trunk' "$head") = $head ]]; then
-        # This PR has been merged
-        merge="$(git log --format='%H %P' --min-parents=2 upstream/trunk | grep -F " $head" | head -n 1 | cut -f1 -d' ')"
-        if [[ -z $merge ]]; then
-          echo "Graph interpretation error: $head is merged into upstream/trunk, but cannot find merge commit?">&2
-          exit 1
+      # upstream refers to upstream/$upstream (at the moment) (at the moment)
+      upstream="${upstream%@fixup}"
+      cmd=''
+      count=-1
+      while read -r entry; do
+        commit="${entry%% *}"
+        if [[ $count -eq -1 && ${entry#* } = 'Basis' ]]; then
+          continue
         fi
-        upstream="$(git merge-base "$merge~1" "$head")"
-        #upstream="$base_trunk"
-      elif [[ -n $base_trunk && $(git merge-base "$base_trunk" "$head") = $base_trunk ]]; then
-        upstream="$base_trunk"
-      else
-        upstream='upstream/trunk'
-      fi
+        cmd="$cmd $commit"
+        ((count++))
+      done < <(git log upstream/$upstream..${HEADS[$entry]} --format="%h %s" --reverse)
+      menu-info "$branch" "adjust $count $branch" "$cmd"
+      COMMITS+=("adjust $count $branch$cmd")
     else
-      #upstream="${HEADS["relocatable-base-$upstream"]}"
-      upstream="upstream/$upstream"
-    fi
+      if [[ $upstream = 'trunk' ]]; then
+        head="${HEADS["$entry"]}"
+        if [[ $(git merge-base 'upstream/trunk' "$head") = $head ]]; then
+          # This PR has been merged
+          merge="$(git log --format='%H %P' --min-parents=2 upstream/trunk | grep -F " $head" | head -n 1 | cut -f1 -d' ')"
+          if [[ -z $merge ]]; then
+            echo "Graph interpretation error: $head is merged into upstream/trunk, but cannot find merge commit?">&2
+            exit 1
+          fi
+          upstream="$(git merge-base "$merge~1" "$head")"
+          #upstream="$base_trunk"
+# If this case comes back in being relevant, try commenting it!
+#        elif [[ -n $base_trunk && $(git merge-base "$base_trunk" "$head") = $base_trunk ]]; then
+#          upstream="$base_trunk"
+        else
+          upstream='upstream/trunk'
+        fi
+      else
+        #upstream="${HEADS["relocatable-base-$upstream"]}"
+        upstream="upstream/$upstream"
+      fi
       while read -r entry; do
         commit="${entry%% *}"
         bootstrap=0
