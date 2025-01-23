@@ -862,6 +862,7 @@ function rerere-hash
 EOF
 }
 
+declare -A RERERE
 function cherry-pick
 {
   unset RERERE
