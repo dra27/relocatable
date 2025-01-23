@@ -1104,6 +1104,20 @@ function commit
     fi
     echo -e "  Commit skipped - it's empty"
     head="$(git rev-parse --short HEAD)"
+  elif git diff --cached --exit-code --quiet HEAD~1 && [[ ${3% *} = 'fixup' ]]; then
+    if [[ -z $4 ]]; then
+      echo "Internal error: given that \${3% *} = 'fixup'; expected \$4 = --amend, but it's '$4'" >&2
+      exit 1
+    elif [[ -n $2 ]]; then
+      echo "Internal error: given a fixup creating an empty commit, didn't expect next commands, but \$2 = '$2'" >&2
+      exit 1
+    fi
+    # This is a fixup which now creates an empty commit - delete the previous
+    # commit from the run
+    unset 'COMMITS[-1]'
+    git reset --hard HEAD~1 &> /dev/null
+    echo -e "  Commit reverted - it's now empty"
+    head="$(git rev-parse --short HEAD)"
   else
     if [[ $this_provenance = $last_provenance ]]; then
       SKIPPED=()
