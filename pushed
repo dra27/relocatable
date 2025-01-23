@@ -34,7 +34,19 @@ while read -r branch; do
     if [[ $(git rev-parse "$branch") = $(git rev-parse "$remote") ]]; then
       PUSHED+=("$branch to $remote")
     else
-      OUT_OF_SYNC+=("$branch with $remote $(git for-each-ref --format='%(push:track)' refs/heads/$branch)")
+      our_timestamp="$(git log -1 --format=%cd --date=unix $branch)"
+      remote_timestamp="$(git log -1 --format=%cd --date=unix $remote)"
+      if [[ $our_timestamp -gt $remote_timestamp ]]; then
+        sync='\e[32mnewer'
+        head_colour=32
+        remote_colour=0
+      else
+        sync='\e[33molder'
+        head_colour=33
+        remote_colour=0
+      fi
+      sync="$sync\\e[0m (\\e[${head_colour}m$(date --date=@$our_timestamp '+%d-%b-%Y %H:%M:%S')\\e[0m vs \\e[${remote_colour}m$(date --date=@$remote_timestamp '+%d-%b-%Y %H:%M:%S')\\e[0m)"
+      OUT_OF_SYNC+=("$branch with $remote $(git for-each-ref --format='%(push:track)' refs/heads/$branch) - HEAD is $sync")
     fi
   fi
 done < <(git branch --format='%(refname:lstrip=2) %(upstream:lstrip=2)')
@@ -56,6 +68,6 @@ fi
 if [[ ${#OUT_OF_SYNC[@]} -gt 0 ]]; then
   echo -e "\e[33mOut-of-sync with origin\e[0m"
   for branch in "${OUT_OF_SYNC[@]}"; do
-    echo "  - $branch"
+    echo -e "  - $branch"
   done
 fi
