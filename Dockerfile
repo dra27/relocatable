@@ -28,16 +28,22 @@ RUN sed -e '/If any/iexit $STATUS' tools/pre-commit-githook > ../.git/modules/oc
 RUN chmod +x ../.git/modules/ocaml/hooks/pre-commit
 # Sync with upstream
 RUN git remote add upstream https://github.com/ocaml/ocaml.git --fetch
+RUN git checkout relocatable-locks
 
 FROM base AS lock-ef758648dd
+RUN test -n "$(git branch relocatable-locks --contains 'ef758648dd' 2>/dev/null)" || git fetch origin && git reset --hard origin/relocatable-locks
 RUN script --return --command '../stack ef758648dd' ../log
 FROM base AS lock-b026116679
+RUN test -n "$(git branch relocatable-locks --contains 'b026116679' 2>/dev/null)" || git fetch origin && git reset --hard origin/relocatable-locks
 RUN script --return --command '../stack b026116679' ../log
 FROM base AS lock-511e988096
+RUN test -n "$(git branch relocatable-locks --contains '511e988096' 2>/dev/null)" || git fetch origin && git reset --hard origin/relocatable-locks
 RUN script --return --command '../stack 511e988096' ../log
 FROM base AS lock-d2939babd4
+RUN test -n "$(git branch relocatable-locks --contains 'd2939babd4' 2>/dev/null)" || git fetch origin && git reset --hard origin/relocatable-locks
 RUN script --return --command '../stack d2939babd4' ../log
 FROM base AS lock-be8c62d74b
+RUN test -n "$(git branch relocatable-locks --contains 'be8c62d74b' 2>/dev/null)" || git fetch origin && git reset --hard origin/relocatable-locks
 RUN script --return --command '../stack be8c62d74b' ../log
 
 FROM base AS collect

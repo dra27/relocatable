@@ -31,11 +31,13 @@ RUN sed -e '/If any/iexit $STATUS' tools/pre-commit-githook > ../.git/modules/oc
 RUN chmod +x ../.git/modules/ocaml/hooks/pre-commit
 # Sync with upstream
 RUN git remote add upstream https://github.com/ocaml/ocaml.git --fetch
+RUN git checkout relocatable-locks
 
 EOF
 
 for lock in $(git -C ocaml log --oneline --first-parent --format=%h --reverse origin/relocatable-locks | tail -n +2); do
   echo "FROM base AS lock-$lock"
+  echo "RUN test -n \"\$(git branch relocatable-locks --contains '$lock' 2>/dev/null)\" || git fetch origin && git reset --hard origin/relocatable-locks"
   echo "RUN script --return --command '../stack $lock' ../log"
 done >> Dockerfile
 
