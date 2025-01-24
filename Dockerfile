@@ -29,19 +29,6 @@ RUN chmod +x ../.git/modules/ocaml/hooks/pre-commit
 # Sync with upstream
 RUN git remote add upstream https://github.com/ocaml/ocaml.git --fetch
 
-FROM base AS main
-
-WORKDIR ..
-
-# Populate the rerere cache
-RUN mkdir -p .git/modules/ocaml/rr-cache
-RUN git --work-tree=.git/modules/ocaml/rr-cache checkout origin/rr-cache -- .
-
-WORKDIR ocaml
-
-# Stack 'em, pack 'em and rack 'em
-RUN script --return --command ../stack ../log
-
 FROM base AS lock-ef758648dd
 RUN script --return --command '../stack ef758648dd' ../log
 FROM base AS lock-b026116679
@@ -55,7 +42,6 @@ RUN script --return --command '../stack be8c62d74b' ../log
 
 FROM base AS collect
 WORKDIR /home/opam
-COPY --from=main /home/opam/relocatable/log main
 COPY --from=lock-ef758648dd /home/opam/relocatable/log lock-ef758648dd
 COPY --from=lock-b026116679 /home/opam/relocatable/log lock-b026116679
 COPY --from=lock-511e988096 /home/opam/relocatable/log lock-511e988096
@@ -74,6 +60,4 @@ echo "Lock d2939babd4: $(git -C relocatable/ocaml log -1 --format=%s d2939babd4)
 sed -e '1,/^ - Trees differ/d;/^Script done on/d' lock-d2939babd4
 echo "Lock be8c62d74b: $(git -C relocatable/ocaml log -1 --format=%s be8c62d74b)"
 sed -e '1,/^ - Trees differ/d;/^Script done on/d' lock-be8c62d74b
-echo 'main run'
-sed -e '1,/^ - Trees differ/d;/^Script done on/d' main
 EOF

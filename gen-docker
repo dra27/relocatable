@@ -32,19 +32,6 @@ RUN chmod +x ../.git/modules/ocaml/hooks/pre-commit
 # Sync with upstream
 RUN git remote add upstream https://github.com/ocaml/ocaml.git --fetch
 
-FROM base AS main
-
-WORKDIR ..
-
-# Populate the rerere cache
-RUN mkdir -p .git/modules/ocaml/rr-cache
-RUN git --work-tree=.git/modules/ocaml/rr-cache checkout origin/rr-cache -- .
-
-WORKDIR ocaml
-
-# Stack 'em, pack 'em and rack 'em
-RUN script --return --command ../stack ../log
-
 EOF
 
 for lock in $(git -C ocaml log --oneline --first-parent --format=%h --reverse origin/relocatable-locks | tail -n +2); do
@@ -56,7 +43,6 @@ cat >> Dockerfile <<"EOF"
 
 FROM base AS collect
 WORKDIR /home/opam
-COPY --from=main /home/opam/relocatable/log main
 EOF
 
 for lock in $(git -C ocaml log --oneline --first-parent --format=%h --reverse origin/relocatable-locks | tail -n +2); do
@@ -77,7 +63,5 @@ for lock in $(git -C ocaml log --oneline --first-parent --format=%h --reverse or
 done >> Dockerfile
 
 cat >> Dockerfile <<ZOF
-echo 'main run'
-sed -e $sed_line main
 EOF
 ZOF
