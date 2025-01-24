@@ -51,6 +51,9 @@ RUN script --return --command '../stack c007288549' ../log
 FROM base AS lock-061acc735f
 RUN test -n "$(git branch relocatable-locks --contains '061acc735f' 2>/dev/null)" || git fetch origin && git reset --hard origin/relocatable-locks
 RUN script --return --command '../stack 061acc735f' ../log
+FROM base AS lock-9cb60e14d4
+RUN test -n "$(git branch relocatable-locks --contains '9cb60e14d4' 2>/dev/null)" || git fetch origin && git reset --hard origin/relocatable-locks
+RUN script --return --command '../stack 9cb60e14d4' ../log
 
 FROM base AS collect
 WORKDIR /home/opam
@@ -61,6 +64,7 @@ COPY --from=lock-d2939babd4 /home/opam/relocatable/log lock-d2939babd4
 COPY --from=lock-be8c62d74b /home/opam/relocatable/log lock-be8c62d74b
 COPY --from=lock-c007288549 /home/opam/relocatable/log lock-c007288549
 COPY --from=lock-061acc735f /home/opam/relocatable/log lock-061acc735f
+COPY --from=lock-9cb60e14d4 /home/opam/relocatable/log lock-9cb60e14d4
 COPY --chmod=755 <<EOF display.sh
 #!/bin/sh
 
@@ -78,4 +82,6 @@ echo "Lock c007288549: $(git -C relocatable/ocaml log -1 --format=%s c007288549)
 sed -e '1,/^ - Trees differ/d;/^Script done on/d' lock-c007288549
 echo "Lock 061acc735f: $(git -C relocatable/ocaml log -1 --format=%s 061acc735f)"
 sed -e '1,/^ - Trees differ/d;/^Script done on/d' lock-061acc735f
+echo "Lock 9cb60e14d4: $(git -C relocatable/ocaml log -1 --format=%s 9cb60e14d4)"
+sed -e '1,/^ - Trees differ/d;/^Script done on/d' lock-9cb60e14d4
 EOF
