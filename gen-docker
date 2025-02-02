@@ -37,7 +37,7 @@ EOF
 
 for lock in $(git -C ocaml log --oneline --first-parent --format=%h --reverse origin/relocatable-locks | tail -n +2); do
   echo "FROM base AS lock-$lock"
-  echo "RUN test -n \"\$(git branch relocatable-locks --contains '$lock' 2>/dev/null)\" || git fetch origin && git reset --hard origin/relocatable-locks"
+  echo "RUN test -n \"\$(git branch relocatable-locks --contains '$lock' 2>/dev/null)\" || git fetch --multiple upstream origin && git reset --hard origin/relocatable-locks"
   echo "RUN script --return --command '../stack $lock' ../log"
 done >> Dockerfile
 
