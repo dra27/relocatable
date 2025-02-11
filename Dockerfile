@@ -1,4 +1,4 @@
-FROM ocaml/opam:ubuntu-22.04-opam AS base
+FROM ocaml/opam:ubuntu-24.04-opam AS base
 
 RUN sudo apt-get update && sudo apt-get install -y gawk autoconf2.69
 RUN sudo apt-get install -y vim
