@@ -678,7 +678,7 @@ function rebase
           SKIPPED=()
         fi
         if [[ $verb = 'fixup' ]]; then
-          display-with-provenance "fixup \e[97m$sha\e[0m" "$sha" "on $target_branch - $(git log -n 1 --format='%s' $sha)"
+          display-with-provenance "fixup \e[97m$sha\e[0m" "$sha" "on \e[97m$(git rev-parse --short $target_branch)\e[0m of $target_branch - $(git log -n 1 --format='%s' $sha)"
           msg="$(git rev-parse --short HEAD)"
           amend='--amend'
           next=''
