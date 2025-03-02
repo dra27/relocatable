@@ -696,7 +696,7 @@ function rebase
         SKIPPED=()
         bootstrap_msg="Bootstrap \e[97m$sha\e[0m to $target_branch ($(git rev-parse --short HEAD))"
         display-with-provenance "Bootstrap \e[97m$sha\e[0m" "$sha" "to $target_branch ($(git rev-parse --short HEAD))"
-        cached="$(git reflog --format='%h %p' | grep " $(git rev-parse --short HEAD)$" | head -n 1 | cut -f1 -d' ')"
+        cached="$(git reflog --format='%h %p' -- boot/ocamlc | grep " $(git rev-parse --short HEAD)$" | head -n 1 | cut -f1 -d' ')"
         if [[ -n $cached ]] && git diff-tree --no-commit-id --name-only -r "$cached" | grep -Fq 'boot/ocaml'; then
           echo "Re-using previous bootstrap computation from $cached"
           git merge --ff-only $cached &> /dev/null
