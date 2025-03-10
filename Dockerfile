@@ -54,6 +54,18 @@ RUN script --return --command '../stack 061acc735f' ../log
 FROM base AS lock-9cb60e14d4
 RUN test -n "$(git branch relocatable-locks --contains '9cb60e14d4' 2>/dev/null)" || git fetch --multiple upstream origin && git reset --hard origin/relocatable-locks
 RUN script --return --command '../stack 9cb60e14d4' ../log
+FROM base AS lock-54d34a7a07
+RUN test -n "$(git branch relocatable-locks --contains '54d34a7a07' 2>/dev/null)" || git fetch --multiple upstream origin && git reset --hard origin/relocatable-locks
+RUN script --return --command '../stack 54d34a7a07' ../log
+FROM base AS lock-1fec8b02bf
+RUN test -n "$(git branch relocatable-locks --contains '1fec8b02bf' 2>/dev/null)" || git fetch --multiple upstream origin && git reset --hard origin/relocatable-locks
+RUN script --return --command '../stack 1fec8b02bf' ../log
+FROM base AS lock-68507ab524
+RUN test -n "$(git branch relocatable-locks --contains '68507ab524' 2>/dev/null)" || git fetch --multiple upstream origin && git reset --hard origin/relocatable-locks
+RUN script --return --command '../stack 68507ab524' ../log
+FROM base AS lock-344465c433
+RUN test -n "$(git branch relocatable-locks --contains '344465c433' 2>/dev/null)" || git fetch --multiple upstream origin && git reset --hard origin/relocatable-locks
+RUN script --return --command '../stack 344465c433' ../log
 
 FROM base AS collect
 WORKDIR /home/opam
@@ -65,6 +77,10 @@ COPY --from=lock-be8c62d74b /home/opam/relocatable/log lock-be8c62d74b
 COPY --from=lock-c007288549 /home/opam/relocatable/log lock-c007288549
 COPY --from=lock-061acc735f /home/opam/relocatable/log lock-061acc735f
 COPY --from=lock-9cb60e14d4 /home/opam/relocatable/log lock-9cb60e14d4
+COPY --from=lock-54d34a7a07 /home/opam/relocatable/log lock-54d34a7a07
+COPY --from=lock-1fec8b02bf /home/opam/relocatable/log lock-1fec8b02bf
+COPY --from=lock-68507ab524 /home/opam/relocatable/log lock-68507ab524
+COPY --from=lock-344465c433 /home/opam/relocatable/log lock-344465c433
 COPY --chmod=755 <<EOF display.sh
 #!/bin/sh
 
@@ -84,4 +100,12 @@ echo "Lock 061acc735f: $(git -C relocatable/ocaml log -1 --format=%s 061acc735f)
 sed -e '1,/^ - Trees differ/d;/^Script done on/d' lock-061acc735f
 echo "Lock 9cb60e14d4: $(git -C relocatable/ocaml log -1 --format=%s 9cb60e14d4)"
 sed -e '1,/^ - Trees differ/d;/^Script done on/d' lock-9cb60e14d4
+echo "Lock 54d34a7a07: $(git -C relocatable/ocaml log -1 --format=%s 54d34a7a07)"
+sed -e '1,/^ - Trees differ/d;/^Script done on/d' lock-54d34a7a07
+echo "Lock 1fec8b02bf: $(git -C relocatable/ocaml log -1 --format=%s 1fec8b02bf)"
+sed -e '1,/^ - Trees differ/d;/^Script done on/d' lock-1fec8b02bf
+echo "Lock 68507ab524: $(git -C relocatable/ocaml log -1 --format=%s 68507ab524)"
+sed -e '1,/^ - Trees differ/d;/^Script done on/d' lock-68507ab524
+echo "Lock 344465c433: $(git -C relocatable/ocaml log -1 --format=%s 344465c433)"
+sed -e '1,/^ - Trees differ/d;/^Script done on/d' lock-344465c433
 EOF
