@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo 'The working tree is not clean' >&2
+  exit 1
+fi
+
+ret="$(git rev-parse --abbrev-ref HEAD)"
+[[ $ret != 'HEAD' ]] || ret="$(git rev-parse HEAD)"
+
+base="$(git merge-base installation-tests $ret)"
+
+echo "Report sizes from $base..$ret"
+git clean -dfX &> /dev/null
+git checkout -q "$base"
+printf 'configuring tree...'
+./configure $1 &> /dev/null
+echo -ne '\r\e[2K'
+
+for sha in $(git log --format='%h' --reverse $(git merge-base installation-tests $ret)..$ret); do
+  git checkout -q "$sha"
+  if git show --format='' --name-only | grep -q '\.in$'; then
+    printf "$sha: re-running ./config.status\r"
+    ./config.status &> /dev/null
+    echo -ne '\e[2K'
+  fi
+  if grep -q '^tmpheader\.exe:.*libcamlrun' stdlib/Makefile; then
+    if [[ -f boot/ocamlrun ]]; then
+      target='makeruntime'
+    else
+      target='coldstart'
+    fi
+    printf "$sha: compiling...\r"
+    if ! make -j $target &> /dev/null ; then
+      make -j $target
+      echo "$sha: build failure!"
+    else
+      echo -ne '\e[2K'
+    fi
+  fi
+  rm -f stdlib/tmpheader.exe stdlib/tmpheader.o stdlib/tmpheader.obj
+  if ! make -C stdlib tmpheader.exe &> /dev/null; then
+    make -C stdlib tmpheader.exe
+    echo "$sha: header compilation error!"
+  else
+    echo "$sha: $(stat -c '%s' stdlib/tmpheader.exe)    $(git log --format=%s "$sha" -1)"
+  fi
+done
+
+git checkout "$ret"
