@@ -260,6 +260,7 @@ if [[ -z $lock ]]; then
 
   # Check the branches all exist and collect the commits to stack
   for instruction in "${BRANCHES[@]}"; do
+    [[ $instruction != 'stop-backporting' ]] || continue
     branch="${instruction%%@*}"
     if ! git rev-parse --verify $branch &> /dev/null; then
       if ! git rev-parse --verify origin/$branch &> /dev/null; then
@@ -296,7 +297,11 @@ if [[ -z $lock ]]; then
 
   for instruction in "${BRANCHES[@]}" "${TARGETS[@]}"; do
     if [[ -z ${HEADS[$instruction]} ]]; then
-      echo "relocatable-base-$instruction ${HEADS[relocatable-base-$instruction]}"
+      if [[ $instruction = 'stop-backporting' ]]; then
+        echo "$instruction"
+      else
+        echo "relocatable-base-$instruction ${HEADS[relocatable-base-$instruction]}"
+      fi
     else
       echo "$instruction ${HEADS[$instruction]}"
     fi
@@ -309,7 +314,7 @@ else
     else
       TARGETS+=(${branch#relocatable-base-})
     fi
-    HEADS[$branch]=$head
+    [[ -z $head ]] || HEADS[$branch]=$head
   done < <(eval "$lock")
 fi
 
@@ -346,6 +351,7 @@ function menu-info
 
 declare -A PICKED
 declare -A TOUCHED
+TOUCHED['stop-backporting']=1
 COMMANDS=()
 COMMITS=()
 WORKING=()
@@ -372,6 +378,10 @@ if [[ ! -e $state_file ]]; then
   # Calculate the menu. First, determine the initial commit list from the
   # branches.
   for entry in "${BRANCHES[@]}"; do
+    if [[ $entry = 'stop-backporting' ]]; then
+      COMMITS+=('stop-backporting')
+      continue
+    fi
     upstream="${entry#*@}"
     branch="${entry%%@*}"
     if [[ $upstream = $entry ]]; then
@@ -475,7 +485,7 @@ else
   phase=0
   while read -r line; do
     case ${line%% *} in
-      pick|bootstrap|coreboot|fixup|adjust|next)
+      pick|bootstrap|coreboot|fixup|adjust|next|stop-backporting)
         if ((phase)); then
           WORKING+=("$line")
         else
@@ -547,6 +557,9 @@ function abort
     done;
     echo "start $start_time"
     echo "cherry-stamp $cherry_stamp"
+    if ((!backporting)); then
+      echo 'stop-backporting'
+    fi
     for commit in "${COMMITS[@]}"; do
       echo "$commit"
     done;
@@ -555,7 +568,11 @@ function abort
     echo "commit $instr";
     for instruction in "${BRANCHES[@]}" "${TARGETS[@]}"; do
       if [[ -z ${HEADS[$instruction]} ]]; then
-        echo "lock relocatable-base-$instruction ${HEADS[relocatable-base-$instruction]}"
+        if [[ $instruction = 'stop-backporting' ]]; then
+          echo "lock $instruction"
+        else
+          echo "lock relocatable-base-$instruction ${HEADS[relocatable-base-$instruction]}"
+        fi
       else
         echo "lock $instruction ${HEADS[$instruction]}"
       fi
@@ -664,14 +681,21 @@ function rebase
     sha="${instr#* }"
     verb="${instr%% *}"
     case $verb in
+      stop-backporting)
+        last_provenance='_not_a_provenance'
+        backporting=0;;
       next)
-        COMMITS+=("$sha");;
+        if ((backporting)); then
+          COMMITS+=("$sha")
+        fi;;
       pick|fixup)
         if [[ ${PROVENANCE[$sha]} != $last_provenance ]]; then
           if [[ ${#SKIPPED} -gt 0 ]]; then
             for commit in "${SKIPPED[@]}"; do
-              echo -e "Keeping \e[97m$commit\e[0m (from \e[34m$last_provenance\e[0m) as it hasn't yet been used"
-              COMMITS+=("pick $commit")
+              if ((backporting)); then
+                echo -e "Keeping \e[97m$commit\e[0m (from \e[34m$last_provenance\e[0m) as it hasn't yet been used"
+                COMMITS+=("pick $commit")
+              fi
             done
           fi
           last_provenance='_not_a_provenance'
@@ -700,9 +724,11 @@ function rebase
         if [[ -n $cached ]] && git diff-tree --no-commit-id --name-only -r "$cached" | grep -Fq 'boot/ocaml'; then
           echo "Re-using previous bootstrap computation from $cached"
           git merge --ff-only $cached &> /dev/null
-          COMMITS+=("bootstrap $cached")
-          PROVENANCE["$cached"]="@$sha"
-          PROVENANCE["@$cached"]="$target_branch"
+          if ((backporting)); then
+            COMMITS+=("bootstrap $cached")
+            PROVENANCE["$cached"]="@$sha"
+            PROVENANCE["@$cached"]="$target_branch"
+          fi
         else
           BOOTSTRAPS+=("$bootstrap_msg")
           echo "  Bootstrapping..."
@@ -763,8 +789,10 @@ function rebase
               head="$(git rev-parse --short HEAD)"
               #PROVENANCE["$head"]="@$sha"
               #PROVENANCE["@$head"]="$target_branch"
-              COMMITS+=("coreboot $head")
-              PROVENANCE["$head"]="@$sha"
+              if ((backporting)); then
+                COMMITS+=("coreboot $head")
+                PROVENANCE["$head"]="@$sha"
+              fi
             fi
           else
             coreboot "$sha" "$coreboot_msg"
@@ -968,9 +996,11 @@ function coreboot
           echo "  Reset committer information on $combined to give $new"
           combined="$new"
         fi
-        COMMITS+=("coreboot $combined")
-        PROVENANCE["$combined"]="@$1"
-        PROVENANCE["@$combined"]="$target_branch"
+        if ((backporting)); then
+          COMMITS+=("coreboot $combined")
+          PROVENANCE["$combined"]="@$1"
+          PROVENANCE["@$combined"]="$target_branch"
+        fi
         return
       fi
     fi
@@ -1040,9 +1070,11 @@ function coreboot
         git commit --reuse-message="$1" --amend &> /dev/null
         reset-committer
         head="$(git rev-parse --short HEAD)"
-        COMMITS+=("coreboot $head")
-        PROVENANCE["$head"]="@$1"
-        PROVENANCE["@$head"]="$target_branch"
+        if ((backporting)); then
+          COMMITS+=("coreboot $head")
+          PROVENANCE["$head"]="@$1"
+          PROVENANCE["@$head"]="$target_branch"
+        fi
       fi
     fi
   fi
@@ -1092,7 +1124,7 @@ function commit
     fi
     show-rr-resolutions "$cherry_stamp" "$(git rev-parse --short HEAD)"
     if [[ $this_provenance != $last_provenance ]]; then
-      if [[ $this_provenance = ${this_provenance#@*} ]]; then
+      if [[ $this_provenance = ${this_provenance#@*} ]] && ((backporting)); then
         last_provenance="$this_provenance"
         SKIPPED=("$1")
       else
@@ -1143,10 +1175,14 @@ function commit
     #echo "Committed HEAD $head"
     if [[ -n $2 ]]; then
       eval "com=\"$2\""
-      COMMITS+=("$com")
+      if ((backporting)); then
+        COMMITS+=("$com")
+      fi
     else
-      previous="${COMMITS[-1]}"
-      COMMITS[-1]="${previous%% *} $head"
+      if ((backporting)); then
+        previous="${COMMITS[-1]}"
+        COMMITS[-1]="${previous%% *} $head"
+      fi
     fi
   fi
   if [[ -z $2 ]]; then
@@ -1220,10 +1256,13 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
       echo -e "Creating branch \e[34m$target_branch\e[0m on \e[34m$arg\e[0m"
       target="$arg"
       WORKING=()
+      backporting=1
       for cmd in "${COMMITS[@]}"; do
         verb="${cmd%% *}"
         sha="${cmd#* }"
         case "$verb" in
+          stop-backporting)
+            WORKING+=('stop-backporting');;
           pick|bootstrap|coreboot)
             if ! is-backport "$sha" "${HEADS[$target]}"; then
               if is-backport "$sha" "$(merge-base 'upstream/trunk' "${HEADS[$target]}")"; then
@@ -1309,7 +1348,7 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
           *)
             echo "Internal error: unrecognised command $cmd" >&2
             exit 1;;
-          esac
+        esac
       done
       COMMITS=()
       git checkout -B "$target_branch" "${HEADS[$arg]}" &> /dev/null
@@ -1437,10 +1476,12 @@ done < <(git log relocatable-locks --format="%h %T")
 if [[ -z $found_lock ]]; then
   parents=()
   for instruction in "${BRANCHES[@]}" "${TARGETS[@]}"; do
-    if [[ -z ${HEADS[$instruction]} ]]; then
-      parents+=(-p ${HEADS[relocatable-base-$instruction]})
-    else
-      parents+=(-p ${HEADS[$instruction]})
+    if [[ $instruction != 'stop-backporting' ]]; then
+      if [[ -z ${HEADS[$instruction]} ]]; then
+        parents+=(-p ${HEADS[relocatable-base-$instruction]})
+      else
+        parents+=(-p ${HEADS[$instruction]})
+      fi
     fi
   done
   for root in "${TARGETS[@]}"; do
