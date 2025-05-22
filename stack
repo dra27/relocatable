@@ -1167,7 +1167,7 @@ function commit
     if [[ ${3% *} = 'fixup' ]]; then
       prev_sha="${COMMITS[-1]#* }"
       PROVENANCE["$head"]="@$prev_sha+${3#* }"
-    else
+    elif [[ $head != $1 ]]; then
       PROVENANCE["$head"]="@$1"
     fi
     PROVENANCE["@$head"]="$target_branch"
