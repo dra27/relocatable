@@ -971,7 +971,7 @@ function coreboot
     cat _log
     rm _log
     abort
-    echo "Commit failed - please fix and re-run $0"
+    echo "Commit failed for "$1" - please fix and re-run $0"
   else
     rm _log
     reset-committer
