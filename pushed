@@ -29,7 +29,15 @@ while read -r branch; do
     case $branch,$remote in
       backport-5.0,*|backport-4.*,*) continue;;
       *,origin/*) ;;
-      *) continue;;
+      *,upstream/*)
+        if [[ ${remote#*/} = $branch ]]; then
+          continue
+        else
+          NO_REMOTE+=("$branch tracking $remote")
+        fi;;
+      *)
+        NO_REMOTE+=("$branch tracking $remote")
+        continue;;
     esac
     if [[ $(git rev-parse "$branch") = $(git rev-parse "$remote") ]]; then
       PUSHED+=("$branch to $remote")
@@ -59,7 +67,7 @@ if [[ ${#PUSHED[@]} -gt 0 ]]; then
 fi
 
 if [[ ${#NO_REMOTE[@]} -gt 0 ]]; then
-  echo -e "\e[31mUntracked branches\e[0m"
+  echo -e "\e[31mUntracked/unrecognised branches\e[0m"
   for branch in "${NO_REMOTE[@]}"; do
     echo "  - $branch"
   done
