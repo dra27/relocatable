@@ -10,7 +10,7 @@ ret="$(git rev-parse --abbrev-ref HEAD)"
 
 base="$(git merge-base installation-tests $ret)"
 
-echo "Report sizes from $base..$ret"
+echo "Report sizes${2:+ of }$2${1:+ for }$1 from $(git rev-parse --short $base)..$(git rev-parse --short $ret)"
 git clean -dfX &> /dev/null
 git checkout -q "$base"
 printf 'configuring tree...'
@@ -25,14 +25,13 @@ for sha in $(git log --format='%h' --reverse $(git merge-base installation-tests
     echo -ne '\e[2K'
   fi
   if grep -q '^tmpheader\.exe:.*libcamlrun' stdlib/Makefile; then
-    if [[ -f boot/ocamlrun ]]; then
-      target='makeruntime'
-    else
-      target='coldstart'
+    if [[ ! -f boot/ocamlrun ]]; then
+      git clean -dfX &> /dev/null
+      ./configure $1 &> /dev/null
     fi
     printf "$sha: compiling...\r"
-    if ! make -j $target &> /dev/null ; then
-      make -j $target
+    if ! make -j coldstart &> /dev/null ; then
+      make -j coldstart
       echo "$sha: build failure!"
     else
       echo -ne '\e[2K'
