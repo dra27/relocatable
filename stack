@@ -388,7 +388,7 @@ if [[ ! -e $state_file ]]; then
       # $entry is just a branch name
       upstream='trunk'
     fi
-    if [[ $upstream =~ ^fixup(~[0-9])?$ ]]; then
+    if [[ $upstream =~ ^fixup(~[0-9]+)?$ ]]; then
       # $entry is foo@fixup (single fixup with optional offset)
       count="${upstream#fixup~}"
       if [[ $count = $upstream ]]; then
