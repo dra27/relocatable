@@ -1165,7 +1165,7 @@ function commit
     if [[ $this_provenance = $last_provenance ]]; then
       SKIPPED=()
     fi
-    if ! git commit --reuse-message="$1" $4 &> _log; then
+    if ! git commit --allow-empty --reuse-message="$1" $4 &> _log; then
       cat _log
       rm _log
       abort
