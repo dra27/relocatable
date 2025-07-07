@@ -1129,7 +1129,7 @@ function commit
   done
   TO_DELETE=()
   this_provenance="${PROVENANCE["$1"]}"
-  if [[ -z "$(git status --porcelain)" ]]; then
+  if [[ -z "$(git status --porcelain)" && ! "${WORKING[0]}" =~ ^fixup' ' ]]; then
     if git commit --allow-empty -m Empty &> /dev/null; then
       git reset --hard HEAD~1 &> /dev/null
     fi
