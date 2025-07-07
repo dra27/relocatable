@@ -891,6 +891,8 @@ function rerere-hash
 EOF
 }
 
+keep_changes=1
+
 declare -A RERERE
 function cherry-pick
 {
@@ -925,8 +927,10 @@ function cherry-pick
     sleep 0.01
     git cherry-pick --no-commit "$1" &> /dev/null
   fi
-  git reset -- Changes $2 &> /dev/null
-  git checkout -- Changes $2 &> /dev/null
+  if [[ $keep_changes -eq 0 ]]; then
+    git reset -- Changes $2 &> /dev/null
+    git checkout -- Changes $2 &> /dev/null
+  fi
   if reconfigure; then
     while read -r status; do
       case ${status:0:2} in
@@ -1095,13 +1099,17 @@ function show-rr-resolutions
         echo -e "  \e[31mUnclear why $file was used\e[0m"
       else
         case "$in_tree" in
-          configure|Changes)
-            # Changes is automatically stubbed out during cherry-picking and
+          configure)
             # configure is always regenerated anyway if dependencies are touched
             # byt ehc ommit, so rerere isn't adding much.
             ;;
           *)
-            echo -e "  \e[90m$in_tree corrected using $file\e[0m";;
+            # Changes is automatically stubbed out during cherry-picking and
+            if [[ $in_tree = "Changes" && $keep_changes -eq 0 ]]; then
+              continue
+            else
+              echo -e "  \e[90m$in_tree corrected using $file\e[0m"
+            fi;;
         esac
       fi
     done
