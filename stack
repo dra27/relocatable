@@ -850,6 +850,9 @@ function reconfigure
     fi
     if $autogen; then
       eval $restore
+      if [[ -e utils/config.common.ml.in ]]; then
+        git add -- utils/config.common.ml.in
+      fi
       git add -- configure VERSION
     else
       eval $restore
