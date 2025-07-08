@@ -105,6 +105,20 @@ if [[ -n $1 ]]; then
     backports="$lock"
     lock="git show $lock:branches"
 
+    if git show "$backports:config" &>/dev/null; then
+      while read -r key value; do
+        case $key in
+          keep_changes)
+            keep_changes="$value";;
+          *)
+            echo "Unexpected key in lock config file: $key"
+            exit 1;;
+        esac
+      done < <(git show "$backports:config")
+    else
+      keep_changes=0
+    fi
+
     rm -f ../branches
   else
     lock="$(realpath ${1#@})"
@@ -123,6 +137,9 @@ start_time=$(date '+%Y-%m-%d %H:%M:%S')
 declare -A HEADS
 
 if [[ -z $lock ]]; then
+  # The default is to preserve the Changes file
+  keep_changes=1
+
   # fix-autogen appears first, since it affects any commit touching configure.
   # Part of #10254 allows overriding the autoconf command in autogen.
   # They don't need to go in branches, however.
@@ -541,7 +558,9 @@ if [[ -e ../branches ]]; then
   rm -f branches
   mv ../branches .
   GIT_INDEX_FILE="$lock_index" git add -f branches
-  rm branches
+  echo "keep_changes $keep_changes" > config
+  GIT_INDEX_FILE="$lock_index" git add -f config
+  rm branches config
 fi
 
 function abort
@@ -893,8 +912,6 @@ function rerere-hash
 }
 EOF
 }
-
-keep_changes=1
 
 declare -A RERERE
 function cherry-pick
