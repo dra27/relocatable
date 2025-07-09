@@ -341,10 +341,17 @@ fi
 # - HEADS is an associative array mapping everything in BRANCHES to a sha
 
 declare -A PROVENANCE
+declare -A FIRST_BRANCH
 function menu-info
 {
   if [[ $menu = 'true' ]]; then
-    cmd="\e[34m$1\e[0m: "
+    if [[ $3 = ${3#* } ]]; then
+      sha="$3"
+    else
+      sha="${3# }"
+      sha="${sha%% *}"
+    fi
+    cmd="\e[34m$1\e[0m (${FIRST_BRANCH["$sha"]}): "
     if [[ $2 = 'skip' ]]; then
       cmd="$cmd\e[90mSkipping $3 as it's already present"
     else
@@ -364,6 +371,20 @@ function menu-info
       PROVENANCE[$sha]="$branch"
     done
   fi
+}
+
+function commit-basis
+{
+  base="$(git merge-base $1 upstream/trunk)"
+  if [[ -z ${FIRST_BRANCH["$base"]} ]]; then
+    echo "Unable to work out basis for $1"
+    exit 1
+  else
+    base="${FIRST_BRANCH["$base"]}"
+  fi
+  for sha in "$@"; do
+    FIRST_BRANCH["$sha"]="$base"
+  done
 }
 
 declare -A PICKED
@@ -392,6 +413,14 @@ if [[ ! -e $state_file ]]; then
 
   git clean -dfX &> /dev/null
 
+  if [[ $menu != 'true' ]]; then
+    echo -n 'Calculating the menu... '
+  fi
+  for target in "${TARGETS[@]}"; do
+    base="$(git merge-base ${HEADS["relocatable-base-$target"]} upstream/trunk)"
+    FIRST_BRANCH["$base"]="$target"
+  done
+
   # Calculate the menu. First, determine the initial commit list from the
   # branches.
   for entry in "${BRANCHES[@]}"; do
@@ -412,24 +441,26 @@ if [[ ! -e $state_file ]]; then
         count=0
       fi
       commit="$(git log --format=%h -n 1 "${HEADS[$entry]}")"
+      commit-basis "$commit"
       menu-info "$branch" "adjust $count $entry" "$commit"
       COMMITS+=("adjust $count $entry $commit")
     elif [[ $upstream =~ @fixup$ ]]; then
       # $entry is foo@upstream@fixup (fixups with root + optional Basis)
       # upstream refers to upstream/$upstream (at the moment) (at the moment)
       upstream="${upstream%@fixup}"
-      cmd=''
+      commits=''
       count=-1
       while read -r entry; do
         commit="${entry%% *}"
         if [[ $count -eq -1 && ${entry#* } = 'Basis' ]]; then
           continue
         fi
-        cmd="$cmd $commit"
+        commits="$commits $commit"
         ((count++))
       done < <(git log upstream/$upstream..${HEADS[$entry]} --format="%h %s" --reverse)
-      menu-info "$branch" "adjust $count $branch" "$cmd"
-      COMMITS+=("adjust $count $branch$cmd")
+      commit-basis $commits
+      menu-info "$branch" "adjust $count $branch" "$commits"
+      COMMITS+=("adjust $count $branch$commits")
     else
       if [[ $upstream = 'trunk' ]]; then
         head="${HEADS["$entry"]}"
@@ -452,6 +483,7 @@ if [[ ! -e $state_file ]]; then
         #upstream="${HEADS["relocatable-base-$upstream"]}"
         upstream="upstream/$upstream"
       fi
+      this_basis=''
       while read -r entry; do
         commit="${entry%% *}"
         bootstrap=0
@@ -462,6 +494,12 @@ if [[ ! -e $state_file ]]; then
             *) diffs=1;;
           esac
         done < <(git diff-tree --no-commit-id --name-only -r "$commit")
+        if [[ -z $this_basis ]]; then
+          commit-basis "$commit"
+          this_basis="$base"
+        else
+          FIRST_BRANCH["$commit"]="$this_basis"
+        fi
         if [[ $bootstrap -eq 1 ]]; then
           if [[ $diffs -eq 0 ]]; then
             menu-info "$branch" "bootstrap" "$commit"
@@ -482,6 +520,9 @@ if [[ ! -e $state_file ]]; then
       done < <(git log $upstream..${HEADS[$entry]} --format='%h %s' --reverse)
     fi
   done
+  if [[ $menu != 'true' ]]; then
+    echo 'done!'
+  fi
 
   # Now generate commands for each target branch
   for root in "${TARGETS[@]}"; do
@@ -528,6 +569,9 @@ else
       provenance)
         line="${line#* }"
         PROVENANCE[${line% *}]="${line#* }";;
+      first)
+        line="${line#* }"
+        FIRST_BRANCH[${line% *}]="${line#* }";;
       *)
         echo "Unrecognised command: $line" >&2
         phase=2;;
@@ -570,6 +614,9 @@ function abort
   {
     for sha in "${!PROVENANCE[@]}"; do
       echo "provenance $sha ${PROVENANCE[$sha]}"
+    done;
+    for sha in "${!FIRST_BRANCH[@]}"; do
+      echo "first $sha ${FIRST_BRANCH[$sha]}"
     done;
     for branch in "${!TOUCHED[@]}"; do
       echo "touched $branch"
@@ -1249,6 +1296,8 @@ function commit
 # the WORKING set which carries out the instructions while moving the results
 # back to COMMITS.
 
+use_new_mechanism=1
+
 BOOTSTRAP=()
 aborting=0
 while [[ ${#COMMANDS[@]} -gt 0 ]]; do
@@ -1292,19 +1341,39 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
           stop-backporting)
             WORKING+=('stop-backporting');;
           pick|bootstrap|coreboot)
-            if ! is-backport "$sha" "${HEADS[$target]}"; then
-              if is-backport "$sha" "$(merge-base 'upstream/trunk' "${HEADS[$target]}")"; then
-#                echo -e "Taking \e[97m$sha\e[0m ($(provenance "$sha")) by the new rule! - $(git log -n 1 --format=%s $sha)"
+            if ((use_new_mechanism)); then
+              introduces="${FIRST_BRANCH["$sha"]}"
+              if [[ -z $introduces || $target = "relocatable-base-$introduces" ]]; then
                 older=0
+                new_older=0
               else
-                display-with-provenance "Skipping \e[97m$sha\e[0m" "$sha" "as it's older than $target - $(git log -n 1 --format=%s $sha)"
-                WORKING+=("next $cmd")
                 older=1
+                new_older=1
+#                display-with-provenance "Skipping \e[97m$sha\e[0m" "$sha" "as it's older than $target - $(git log -n 1 --format=%s $sha)"
               fi
             else
-              older=0
+              if ! is-backport "$sha" "${HEADS[$target]}"; then
+                if is-backport "$sha" "$(merge-base 'upstream/trunk' "${HEADS[$target]}")"; then
+#                  echo -e "Taking \e[97m$sha\e[0m ($(provenance "$sha")) by the new rule! - $(git log -n 1 --format=%s $sha)"
+                  older=0
+                  old_older=0
+                else
+                  display-with-provenance "Skipping \e[97m$sha\e[0m" "$sha" "as it's older than $target - $(git log -n 1 --format=%s $sha)"
+                  older=1
+                  old_older=1
+                fi
+              else
+                older=0
+                old_older=0
+              fi
             fi
-            if ((!older)); then
+#            if [[ $new_older != $old_older ]]; then
+#              echo "NOPE! This is $sha and ${PROVENANCE[$sha]} and ${FIRST_BRANCH["$sha"]}"
+#              exit 1
+#            fi
+            if ((older)); then
+              WORKING+=("next $cmd")
+            else
               # This may write more than is required - @ could be skipped)
               prov="${PROVENANCE["$sha"]}"
               if [[ -n $prov ]]; then
@@ -1315,19 +1384,30 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
           adjust)
             # INSTR[0] = adjust; INSTR[1] = count; INSTR[2] = description; INSTR[@]:3 = commits
             INSTR=($cmd)
-            if ! is-backport "${INSTR[3]}" "${HEADS[$target]}"; then
-              if is-backport "${INSTR[3]}" "$(merge-base 'upstream/trunk' "${HEADS[$target]}")"; then
-#                echo -e "Taking \e[34m${INSTR[2]}\e[0m by the new rule!"
+            if ((use_new_mechanism)); then
+              introduces="${FIRST_BRANCH["${INSTR[3]}"]}"
+              if [[ -z $introduces || $target = "relocatable-base-$introduces" ]]; then
                 older=0
               else
-                echo -e "Skipping \e[34m${INSTR[2]}\e[0m as it's older than $target"
-                WORKING+=("next $cmd")
                 older=1
+#                echo -e "Skipping \e[34m${INSTR[2]}\e[0m as it's older than $target"
               fi
             else
-              older=0
+              if ! is-backport "${INSTR[3]}" "${HEADS[$target]}"; then
+                if is-backport "${INSTR[3]}" "$(merge-base 'upstream/trunk' "${HEADS[$target]}")"; then
+#                  echo -e "Taking \e[34m${INSTR[2]}\e[0m by the new rule!"
+                  older=0
+                else
+                  echo -e "Skipping \e[34m${INSTR[2]}\e[0m as it's older than $target"
+                  older=1
+                fi
+              else
+                older=0
+              fi
             fi
-            if ((!older)); then
+            if ((older)); then
+              WORKING+=("next $cmd")
+            else
               TOUCHED["${INSTR[2]%%@*}"]=1
               count="${INSTR[1]}"
               # Remove $count items from WORKING (not counting fixup/next items)
