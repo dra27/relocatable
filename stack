@@ -275,6 +275,7 @@ if [[ -z $lock ]]; then
   BRANCHES+=(camlheader-search unified-camlheader-search@fixup~1 unified-camlheader-search-5.0@fixup~1 unified-camlheader-search-4.14@fixup~1 unified-camlheader-search-4.13@fixup~1 unified-camlheader-search-4.12@fixup~1 unified-camlheader-search-4.11@fixup~1 unified-camlheader-search-4.10@fixup~1)
 
   TARGETS=(trunk 5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08)
+  ALL_TARGETS=(trunk 5.4 5.3 5.2 5.1 5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08)
 
   # Check the branches all exist and collect the commits to stack
   for instruction in "${BRANCHES[@]}"; do
@@ -297,7 +298,7 @@ if [[ -z $lock ]]; then
   done
 
   fault=0
-  for root in "${TARGETS[@]}"; do
+  for root in "${ALL_TARGETS[@]}"; do
     if ! git rev-parse --verify relocatable-base-$root &> /dev/null; then
       if ! git rev-parse --verify origin/relocatable-base-$root &> /dev/null; then
         echo "Target $root not found" >&2
@@ -419,7 +420,7 @@ if [[ ! -e $state_file ]]; then
   if [[ $menu != 'true' ]]; then
     echo -n 'Calculating the menu... '
   fi
-  for target in "${TARGETS[@]}"; do
+  for target in "${ALL_TARGETS[@]}"; do
     base="$(git merge-base ${HEADS["relocatable-base-$target"]} upstream/trunk)"
     FIRST_BRANCH["$base"]="$target"
   done
