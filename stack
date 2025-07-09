@@ -1343,7 +1343,6 @@ function commit
 # back to COMMITS.
 
 declare -A ALL_REMAPS
-WORKING=()
 test_WORKING=()
 function apply-cache
 {
