@@ -2,6 +2,7 @@
 
 state_file="$(realpath $(dirname "$0"))/.stack-state"
 lock_index="$(realpath $(dirname "$0"))/.lock-index"
+cache_index="$(realpath $(dirname "$0"))/.cache-index"
 dir="$(realpath $(dirname $0)/ocaml)"
 
 if [[ ! -d $dir ]]; then
@@ -341,6 +342,7 @@ fi
 # - HEADS is an associative array mapping everything in BRANCHES to a sha
 
 declare -A PROVENANCE
+declare -A THIS_PROVENANCE
 declare -A FIRST_BRANCH
 function menu-info
 {
@@ -369,6 +371,7 @@ function menu-info
   elif [[ $2 != 'skip' ]]; then
     for sha in $3; do
       PROVENANCE[$sha]="$branch"
+      THIS_PROVENANCE[$sha]="$branch"
     done
   fi
 }
@@ -739,6 +742,7 @@ function reset-committer
   fi
 }
 
+declare -A THIS_REMAP
 function rebase
 {
   while [[ ${#WORKING[@]} -gt 0 ]]; do
@@ -760,6 +764,7 @@ function rebase
             for commit in "${SKIPPED[@]}"; do
               if ((backporting)); then
                 echo -e "Keeping \e[97m$commit\e[0m (from \e[34m$last_provenance\e[0m) as it hasn't yet been used"
+                THIS_REMAP["$commit"]="$commit"
                 COMMITS+=("pick $commit")
               fi
             done
@@ -773,6 +778,7 @@ function rebase
           amend='--amend'
           next=''
         else
+          current_pick="$sha"
           display-with-provenance "cherry-pick \e[97m$sha\e[0m" "$sha" "to $target_branch - $(git log -n 1 --format='%s' $sha)"
           msg="$sha"
           amend=''
@@ -782,6 +788,7 @@ function rebase
           commit "$msg" "$next" "$instr" "$amend"
         fi;;
       bootstrap)
+        current_pick="$sha"
         last_provenance='_not_a_provenance'
         SKIPPED=()
         bootstrap_msg="Bootstrap \e[97m$sha\e[0m to $target_branch ($(git rev-parse --short HEAD))"
@@ -791,9 +798,12 @@ function rebase
           echo "Re-using previous bootstrap computation from $cached"
           git merge --ff-only $cached &> /dev/null
           if ((backporting)); then
+            THIS_REMAP["$current_pick"]="$cached"
             COMMITS+=("bootstrap $cached")
             PROVENANCE["$cached"]="@$sha"
             PROVENANCE["@$cached"]="$target_branch"
+            THIS_PROVENANCE["$cached"]="@$sha"
+            THIS_PROVENANCE["@$cached"]="$target_branch"
           fi
         else
           BOOTSTRAPS+=("$bootstrap_msg")
@@ -835,6 +845,9 @@ function rebase
           fi
         fi;;
       coreboot)
+        if [[ -z $current_pick ]]; then
+          current_pick="$sha"
+        fi
         last_provenance='_not_a_provenance'
         SKIPPED=()
         coreboot_msg="Coreboot \e[97m$sha\e[0m to $target_branch ($(git rev-parse --short HEAD)) - $(git log -n 1 --format='%s' $sha)"
@@ -858,6 +871,7 @@ function rebase
               if ((backporting)); then
                 COMMITS+=("coreboot $head")
                 PROVENANCE["$head"]="@$sha"
+                THIS_PROVENANCE["$head"]="@$sha"
               fi
             fi
           else
@@ -1035,6 +1049,8 @@ function coreboot
   head_sha="$(git rev-parse --short HEAD)"
   # Check the cache
   if [[ -z "$(git status --porcelain)" ]]; then
+    THIS_REMAP["$current_pick"]=''
+    current_pick=''
     echo "  Commit skipped - it's empty"
     return
   fi
@@ -1068,9 +1084,12 @@ function coreboot
           combined="$new"
         fi
         if ((backporting)); then
+          THIS_REMAP["$current_pick"]="$combined"
           COMMITS+=("coreboot $combined")
           PROVENANCE["$combined"]="@$1"
           PROVENANCE["@$combined"]="$target_branch"
+          THIS_PROVENANCE["$combined"]="@$1"
+          THIS_PROVENANCE["@$combined"]="$target_branch"
         fi
         return
       fi
@@ -1142,19 +1161,26 @@ function coreboot
         reset-committer
         head="$(git rev-parse --short HEAD)"
         if ((backporting)); then
+          THIS_REMAP["$current_pick"]="$head"
           COMMITS+=("coreboot $head")
           PROVENANCE["$head"]="@$1"
           PROVENANCE["@$head"]="$target_branch"
+          THIS_PROVENANCE["$head"]="@$1"
+          THIS_PROVENANCE["@$head"]="$target_branch"
         fi
       fi
     fi
   fi
 }
 
+declare -A THIS_USES
 function show-rr-resolutions
 {
   if [[ -d ../.git/modules/ocaml/rr-cache ]]; then
     for file in $(find ../.git/modules/ocaml/rr-cache -type f -newermt "$1" -name postimage\*); do
+      if [[ -z ${THIS_USES["$file"]+x} ]]; then
+        THIS_USES["$file"]=1
+      fi
       rr_cache_hash="$(basename "$(dirname "$file")")"
       in_tree="${RERERE[$rr_cache_hash]}"
       if [[ $in_tree = '*' ]]; then
@@ -1210,6 +1236,12 @@ function commit
       SKIPPED+=("$1")
     fi
     echo -e "  Commit skipped - it's empty"
+    if ((backporting)); then
+      if [[ -z $4 ]]; then
+        THIS_REMAP["$current_pick"]=''
+      fi
+    fi
+    current_pick=''
     head="$(git rev-parse --short HEAD)"
   elif git diff --cached --exit-code --quiet HEAD~1 && [[ ${3% *} = 'fixup' ]]; then
     if [[ -z $4 ]]; then
@@ -1225,6 +1257,10 @@ function commit
     git reset --hard HEAD~1 &> /dev/null
     echo -e "  Commit reverted - it's now empty"
     head="$(git rev-parse --short HEAD)"
+    if ((backporting)); then
+      THIS_REMAP["$current_pick"]=''
+    fi
+    current_pick=''
   else
     if [[ $this_provenance = $last_provenance ]]; then
       SKIPPED=()
@@ -1242,12 +1278,21 @@ function commit
     if [[ ${3% *} = 'fixup' ]]; then
       prev_sha="${COMMITS[-1]#* }"
       PROVENANCE["$head"]="@$prev_sha+${3#* }"
+      THIS_PROVENANCE["$head"]="@$prev_sha+${3#* }"
     elif [[ $head != $1 ]]; then
       PROVENANCE["$head"]="@$1"
+      THIS_PROVENANCE["$head"]="@$1"
     fi
     PROVENANCE["@$head"]="$target_branch"
+    THIS_PROVENANCE["@$head"]="$target_branch"
     show-rr-resolutions "$cherry_stamp" "$head"
     #echo "Committed HEAD $head"
+    if ((backporting)); then
+      THIS_REMAP["$current_pick"]="$head"
+    fi
+    if [[ ! "${WORKING[0]}" =~ ^fixup' ' ]]; then
+      current_pick=''
+    fi
     if [[ -n $2 ]]; then
       eval "com=\"$2\""
       if ((backporting)); then
@@ -1296,8 +1341,38 @@ function commit
 # the WORKING set which carries out the instructions while moving the results
 # back to COMMITS.
 
+declare -A ALL_REMAPS
+WORKING=()
+test_WORKING=()
+function apply-cache
+{
+  test_WORKING=()
+  for cmd in "${WORKING[@]}"; do
+    if [[ $cmd = 'stop-backporting' ]]; then
+      break
+    fi
+    verb="${cmd%% *}"
+    sha="${cmd#* }"
+    case $verb in
+      next)
+        test_WORKING+=("$sha");;
+      fixup)
+        ;;
+      *)
+        if [[ $verb != 'pick' || -n ${ALL_REMAPS[$sha]} ]]; then
+          test_WORKING+=("$verb ${ALL_REMAPS[$sha]}")
+        fi;;
+    esac
+  done
+}
+
+# XXX At the moment, caching will contradict locking. Various things to fix,
+#     e.g. touching the rerere files based on the cache, etc.
+use_caching=1
+
 use_new_mechanism=1
 
+declare -A THIS_TOUCHED
 BOOTSTRAP=()
 aborting=0
 while [[ ${#COMMANDS[@]} -gt 0 ]]; do
@@ -1329,6 +1404,17 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
         fi
       fi;;
     branch)
+      unset THIS_USES
+      unset THIS_TOUCHED
+      unset THIS_PROVENANCE
+      unset THIS_REMAP
+      declare -gA THIS_TOUCHED
+      declare -gA THIS_USES
+      declare -gA THIS_PROVENANCE
+      declare -gA THIS_REMAP
+      if [[ -n $target_branch ]]; then
+        THIS_TOUCHED["$target_branch"]="$(git rev-parse $target_branch)"
+      fi
       target_branch="backport-${arg#relocatable-base-}"
       echo -e "Creating branch \e[34m$target_branch\e[0m on \e[34m$arg\e[0m"
       target="$arg"
@@ -1378,6 +1464,11 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
               prov="${PROVENANCE["$sha"]}"
               if [[ -n $prov ]]; then
                 TOUCHED["$prov"]=1
+                if [[ ! $prov =~ ^@ ]]; then
+                  if [[ -z ${THIS_TOUCHED["$prov"]+x} ]]; then
+                    THIS_TOUCHED["$prov"]="$(git rev-parse "$prov")"
+                  fi
+                fi
               fi
               WORKING+=("$cmd")
             fi;;
@@ -1408,7 +1499,13 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
             if ((older)); then
               WORKING+=("next $cmd")
             else
-              TOUCHED["${INSTR[2]%%@*}"]=1
+              prov="${INSTR[2]%%@*}"
+              TOUCHED["$prov"]=1
+              if [[ ! $prov =~ ^@ ]]; then
+                if [[ -z ${THIS_TOUCHED["$prov"]+x} ]]; then
+                  THIS_TOUCHED["$prov"]="$(git rev-parse "$prov")"
+                fi
+              fi
               count="${INSTR[1]}"
               # Remove $count items from WORKING (not counting fixup/next items)
               if [[ $count -eq 0 ]]; then
@@ -1459,8 +1556,169 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
         esac
       done
       COMMITS=()
-      git checkout -B "$target_branch" "${HEADS[$arg]}" &> /dev/null
-      rebase;;
+      for cmd in "${WORKING[@]}"; do
+        if [[ ${cmd%% *} != 'next' ]]; then
+          echo "$cmd"
+        fi
+      done > branches
+      rm -f "$cache_index"
+      GIT_INDEX_FILE="$cache_index" git add -f branches
+      initial_sha="$(GIT_INDEX_FILE="$cache_index" git write-tree)"
+      rm -f "$cache_index" branches
+      found_cache=''
+      while read -r commit tree; do
+        if [[ $tree = $initial_sha ]]; then
+          valid=1
+          for parent in $(git log -n 1 --format=%P "$commit"); do
+            for entry in $(git ls-tree --name-only "$parent"); do
+              if [[ $entry = 'rr-cache' ]]; then
+                for rr in $(git ls-tree --name-only -r "$parent"); do
+                  if ! diff -q <(git show "$parent:$rr") "../.git/modules/ocaml/$rr"; then
+                    valid=0
+                  fi
+                done
+              elif [[ $entry = 'commits' ]]; then
+                found_cache="$parent"
+              elif [[ $entry = 'configure' ]]; then
+                target_sha="$parent"
+              fi
+            done
+          done
+          if ((!valid)); then
+            found_cache=''
+          fi
+          break
+        fi
+      done < <(git log relocatable-cache --first-parent --format="%h %T")
+      if [[ -n $found_cache ]]; then
+        # Load the cache
+        while read -r from to; do
+          ALL_REMAPS["$from"]="$to"
+        done < <(git show "$found_cache:commits")
+        while read -r from to; do
+          PROVENANCE["$from"]="$to"
+        done < <(git show "$found_cache:provenance")
+        apply-cache
+        if ((use_caching)); then
+          echo -e "Using cache entry \e[97m$(git rev-parse --short $commit)\e[0m to set \e[34m$target_branch\e[0m to \e[97m$(git rev-parse --short $target_sha)\e[0m"
+          COMMITS=("${test_WORKING[@]}")
+          git checkout -B "$target_branch" "$target_sha" &> /dev/null
+        else
+          git checkout -B "$target_branch" "${HEADS[$arg]}" &> /dev/null
+          rebase
+        fi
+      else
+        test_WORKING=("${WORKING[@]}")
+        git checkout -B "$target_branch" "${HEADS[$arg]}" &> /dev/null
+        rebase
+      fi
+      if ((aborting)); then
+        found_cache='poison'
+      fi
+      if [[ -z $found_cache ]]; then
+        target_sha="$(git rev-parse HEAD)"
+        # Create the cache entry
+        rm -rf rr-cache commits provenance
+        for entry in "${!THIS_USES[@]}"; do
+          root="${entry#*/rr-cache/}"
+          rr_dir="${root%/*}"
+          mkdir -p "rr-cache/$rr_dir"
+          cp "$entry" "rr-cache/$rr_dir/"
+          cp "${entry/postimage/preimage}" "rr-cache/$rr_dir/"
+        done
+        for from in "${!THIS_REMAP[@]}"; do
+          echo "$from ${THIS_REMAP["$from"]}"
+        done > commits
+        for prov in "${!THIS_PROVENANCE[@]}"; do
+          echo "$prov ${THIS_PROVENANCE["$prov"]}"
+        done > provenance
+        GIT_INDEX_FILE="$cache_index" git add -f commits provenance
+        result_tree_sha="$(GIT_INDEX_FILE="$cache_index" git write-tree)"
+        rm -f "$cache_index" commits provenance
+        result_sha="$(git commit-tree -m Result "$result_tree_sha")"
+        cache_head="$(git rev-parse relocatable-cache)"
+        parents=(-p "$result_sha" -p "$target_branch")
+        if [[ -d 'rr-cache' ]]; then
+          GIT_INDEX_FILE="$cache_index" git add -f rr-cache
+          rr_sha="$(GIT_INDEX_FILE="$cache_index" git write-tree)"
+          rm -f "$cache_index"
+          rm -rf rr-cache
+          rr_sha="$(git commit-tree -m Resolutions "$rr_sha")"
+          parents+=(-p "$rr_sha")
+        fi
+        existing_cache=''
+        while read -r commit tree; do
+          if [[ $tree = $initial_sha ]]; then
+            valid=1
+            for parent in $(git log -n 1 --format=%P "$commit"); do
+              for entry in $(git ls-tree --name-only "$parent"); do
+                case $entry in
+                  branches)
+                    # Parent commit on relocatable-cache
+                    ;;
+                  commits|provenance)
+                    # Result
+                    if [[ $(git log -n 1 --format=%T "$parent") != $result_tree_sha ]]; then
+                      valid=0
+                    fi;;
+                  rr-cache)
+                    # rr-cache
+                    for rr in $(git ls-tree --name-only -r "$parent"); do
+                      if ! diff -q <(git show "$parent:$rr") "../.git/modules/ocaml/$rr"; then
+                        valid=0
+                      fi
+                    done;;
+                esac
+              done
+            done
+            if ((valid)); then
+              existing_cache="$commit"
+            fi
+            break
+          fi
+        done < <(git log relocatable-cache --first-parent --format="%h %T")
+        if [[ -z $existing_cache ]]; then
+          cache_commit="$(git commit-tree -m Cache -p "$cache_head" "${parents[@]}" "$initial_sha")"
+          git branch -f relocatable-cache "$cache_commit"
+        fi
+
+        # Now apply the cache to test_WORKING in order to validate that it is
+        # correct
+        for from in "${!THIS_REMAP[@]}"; do
+          ALL_REMAPS["$from"]="${THIS_REMAP["$from"]}"
+        done
+        WORKING=("${test_WORKING[@]}")
+        test_WORKING=()
+        apply-cache
+      fi
+      if ((!aborting)); then
+        # Verify that the cache correctly predicted COMMITS
+        failed=0
+        if [[ ${#test_WORKING[@]} -ne ${#COMMITS[@]} ]]; then
+          failed=1
+        else
+          while IFS=$'\t' read -r predicted actual; do
+            if [[ $predicted != $actual ]]; then
+              failed=1
+              break
+            fi
+          done < <(paste <(printf "%s\n" "${test_WORKING[@]}") <(printf "%s\n" "${COMMITS[@]}"))
+        fi
+        if ((failed)); then
+          if [[ -z $found_cache ]]; then
+            echo 'The cache entry just created is inconsistent:'
+          else
+            echo 'The cache has failed validation:'
+          fi
+          patdiff <(printf "%s\n" "${test_WORKING[@]}") <(printf "%s\n" "${COMMITS[@]}")
+          exit 1
+        fi
+        if [[ $(git rev-parse HEAD) != $target_sha ]]; then
+          echo "Cache predicted $target_sha, but HEAD is $(git rev-parse HEAD)"
+          exit 1
+        fi
+      fi
+      ;;
     *)
       echo "Internal error: unrecognised command $instr" >&2
       exit 1;;
