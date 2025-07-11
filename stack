@@ -456,7 +456,7 @@ if [[ ! -e $state_file ]]; then
       count=-1
       while read -r entry; do
         commit="${entry%% *}"
-        if [[ $count -eq -1 && ${entry#* } = 'Basis' ]]; then
+        if [[ ${entry#* } = 'Basis' ]]; then
           continue
         fi
         commits="$commits $commit"
