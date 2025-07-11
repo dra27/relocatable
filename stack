@@ -1371,6 +1371,8 @@ function apply-cache
 # XXX At the moment, caching will contradict locking. Various things to fix,
 #     e.g. touching the rerere files based on the cache, etc.
 use_caching=1
+# List TARGETS here to disable the use of the cache (useful for inspecting)
+declare -A SKIP_CACHE #=(['4.14']='')
 
 use_new_mechanism=1
 
@@ -1603,7 +1605,11 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
           PROVENANCE["$from"]="$to"
         done < <(git show "$found_cache:provenance")
         apply-cache
-        if ((use_caching)); then
+        use_cache="$use_caching"
+        if ((use_cache)) && [[ -n ${SKIP_CACHE[${target_branch#backport-}]+x} ]]; then
+          use_cache=0
+        fi
+        if ((use_cache)); then
           echo -e "Using cache entry \e[97m$(git rev-parse --short $commit)\e[0m to set \e[34m$target_branch\e[0m to \e[97m$(git rev-parse --short $target_sha)\e[0m"
           COMMITS=("${test_WORKING[@]}")
           git checkout -B "$target_branch" "$target_sha" &> /dev/null
