@@ -603,12 +603,14 @@ fi
 
 rm -f "$lock_index"
 if [[ -e ../branches ]]; then
-  rm -f branches
-  mv ../branches .
+  mkdir -p lock-temp
+  cd lock-temp
+  mv ../../branches .
   GIT_INDEX_FILE="$lock_index" git add -f branches
   echo "keep_changes $keep_changes" > config
   GIT_INDEX_FILE="$lock_index" git add -f config
-  rm branches config
+  cd ..
+  rm -rf lock-temp
 fi
 
 function abort
