@@ -1629,13 +1629,14 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
       if [[ -z $found_cache ]]; then
         target_sha="$(git rev-parse HEAD)"
         # Create the cache entry
-        rm -rf rr-cache commits provenance
+        rm -rf relocatable-cache-working
+        mkdir relocatable-cache-working
         for entry in "${!THIS_USES[@]}"; do
           root="${entry#*/rr-cache/}"
           rr_dir="${root%/*}"
-          mkdir -p "rr-cache/$rr_dir"
-          cp "$entry" "rr-cache/$rr_dir/"
-          cp "${entry/postimage/preimage}" "rr-cache/$rr_dir/"
+          mkdir -p "relocatable-cache-working/rr-cache/$rr_dir"
+          cp "$entry" "relocatable-cache-working/rr-cache/$rr_dir/"
+          cp "${entry/postimage/preimage}" "relocatable-cache-working/rr-cache/$rr_dir/"
         done
         for from in "${!THIS_REMAP[@]}"; do
           echo "$from ${THIS_REMAP["$from"]}"
@@ -1649,11 +1650,13 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
         result_sha="$(git commit-tree -m Result "$result_tree_sha")"
         cache_head="$(git rev-parse relocatable-cache)"
         parents=(-p "$result_sha" -p "$target_branch")
-        if [[ -d 'rr-cache' ]]; then
-          GIT_INDEX_FILE="$cache_index" git add -f rr-cache
+        if [[ -d 'relocatable-cache-working/rr-cache' ]]; then
+          cd relocatable-cache-working
+          GIT_INDEX_FILE="$cache_index" git --work-tree=. add -f rr-cache
           rr_sha="$(GIT_INDEX_FILE="$cache_index" git write-tree)"
           rm -f "$cache_index"
-          rm -rf rr-cache
+          cd ..
+          rm -rf relocatable-cache-working
           rr_sha="$(git commit-tree -m Resolutions "$rr_sha")"
           parents+=(-p "$rr_sha")
         fi
