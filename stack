@@ -1577,7 +1577,8 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
             for entry in $(git ls-tree --name-only "$parent"); do
               if [[ $entry = 'rr-cache' ]]; then
                 for rr in $(git ls-tree --name-only -r "$parent"); do
-                  if ! diff -q <(git show "$parent:$rr") "../.git/modules/ocaml/$rr"; then
+                  if ! diff -q <(git show "$parent:$rr") "../.git/modules/ocaml/$rr" > /dev/null; then
+                    echo "Discounted $parent from $commit because of ../.git/modules/ocaml/$rr"
                     valid=0
                   else
                     touch "../.git/modules/ocaml/$rr"
@@ -1674,7 +1675,7 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
                   rr-cache)
                     # rr-cache
                     for rr in $(git ls-tree --name-only -r "$parent"); do
-                      if ! diff -q <(git show "$parent:$rr") "../.git/modules/ocaml/$rr"; then
+                      if ! diff -q <(git show "$parent:$rr") "../.git/modules/ocaml/$rr" > /dev/null; then
                         valid=0
                       fi
                     done;;
