@@ -1033,7 +1033,18 @@ function cherry-pick
   # turned on.
   if ((conflicts)); then
     git reset --hard HEAD &> /dev/null
-    sleep 0.01
+    local displaying=0
+    while [[ -n "$(find ../.git/modules/ocaml/rr-cache -type f -newermt "$cherry_stamp")" ]]; do
+      if ((!displaying)); then
+        echo -n 'Waiting for rr-cache to stabilize: '
+        displaying=1
+      fi
+      sleep 0.1
+      echo -n '.'
+    done
+    if ((displaying)); then
+      echo
+    fi
     git cherry-pick --no-commit "$1" &> /dev/null
   fi
   if [[ $keep_changes -eq 0 ]]; then
