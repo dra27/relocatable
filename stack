@@ -532,6 +532,9 @@ if [[ ! -e $state_file ]]; then
   for root in "${TARGETS[@]}"; do
     COMMANDS+=("branch relocatable-base-$root")
   done
+
+  # Eliminate the reflog caches, now that we're ready to go
+  rm -f ../.reflog-all ../.reflog-bootstrap
 else
   if [[ -n "$(git ls-files --exclude-standard --others)" ]]; then
     echo 'Untracked files in the working directory' >&2
@@ -796,7 +799,12 @@ function rebase
         SKIPPED=()
         bootstrap_msg="Bootstrap \e[97m$sha\e[0m to $target_branch ($(git rev-parse --short HEAD))"
         display-with-provenance "Bootstrap \e[97m$sha\e[0m" "$sha" "to $target_branch ($(git rev-parse --short HEAD))"
-        cached="$(git reflog --format='%h %p' -- boot/ocamlc | grep " $(git rev-parse --short HEAD)$" | head -n 1 | cut -f1 -d' ')"
+        if [[ ! -e ../.reflog-bootstrap ]]; then
+          echo -n 'Scouring reflog for previous bootstraps: '
+          git reflog --format='%h %p' -- boot/ocamlc > ../.reflog-bootstrap
+          echo 'done!'
+        fi
+        cached="$(grep " $(git rev-parse --short HEAD)$" ../.reflog-bootstrap | head -n 1 | cut -f1 -d' ')"
         if [[ -n $cached ]] && git diff-tree --no-commit-id --name-only -r "$cached" | grep -Fq 'boot/ocaml'; then
           echo "Re-using previous bootstrap computation from $cached"
           git merge --ff-only $cached &> /dev/null
@@ -1103,7 +1111,12 @@ function coreboot
     reset-committer
     code_sha="$(git rev-parse --short HEAD)"
     show-rr-resolutions "$cherry_stamp" "$head"
-    cached="$(git reflog --format='%h %p' | grep " ${code_sha}\$" | head -n 1 | cut -f1 -d' ')"
+    if [[ ! -e ../.reflog-all ]]; then
+      echo -n 'Absorbing all the energy of the Time Vortex: '
+      git reflog --format='%h %p' > ../.reflog-all
+      echo 'done!'
+    fi
+    cached="$(grep " ${code_sha}\$" ../.reflog-all | head -n 1 | cut -f1 -d' ')"
     if [[ -n $cached ]] && git diff-tree --no-commit-id --name-only -r "$cached" | grep -Fq 'boot/ocaml'; then
       # This code commit has a bootstrap parent - so we can search for a unified commit
       combined=''
@@ -1112,7 +1125,7 @@ function coreboot
           combined="$commit"
           break;
         fi
-      done < <(git reflog --format='%h %p' | grep " ${head_sha}\$" | cut -f1 -d' ' | sort | uniq)
+      done < <(grep " ${head_sha}\$" ../.reflog-all | cut -f1 -d' ' | sort | uniq)
       if [[ -n $combined ]] && git diff-tree --no-commit-id --name-only -r "$combined" | grep -Fq 'boot/ocaml'; then
         echo "  Re-using previous coreboot computation from $combined"
         git reset --hard $combined &> /dev/null
