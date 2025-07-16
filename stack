@@ -933,8 +933,33 @@ function reconfigure
     fi
     if $autogen; then
       eval $restore
+      if [[ -e utils/config.mlp ]]; then
+        if ! grep -q '^<<<<<' utils/config.mlp ; then
+          git add -- utils/config.mlp
+        fi
+      fi
+      if [[ -e utils/config.common.ml ]]; then
+        if [[ -z "$(git status --porcelain | fgrep 'DU utils/config.common.ml')" ]]; then
+          if ! grep -q '^<<<<<' utils/config.common.ml ; then
+            git add -- utils/config.common.ml
+            rm -f utils/config.common.ml.in
+          fi
+        fi
+      fi
       if [[ -e utils/config.common.ml.in ]]; then
-        git add -- utils/config.common.ml.in
+        if [[ -z "$(git status --porcelain | fgrep 'DU utils/config.common.ml.in')" ]]; then
+          case "$target" in
+            relocatable-base-trunk|relocatable-base-5.4|relocatable-base-5.3|relocatable-base-5.2)
+              ;;
+            *)
+              echo $target
+              git status --porcelain
+              exit 1;;
+          esac
+          if ! grep -q '^<<<<<' utils/config.common.ml.in ; then
+            git add -- utils/config.common.ml.in
+          fi
+        fi
       fi
       git add -- configure VERSION
     else
