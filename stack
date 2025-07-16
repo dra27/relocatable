@@ -606,9 +606,9 @@ if [[ -e ../branches ]]; then
   mkdir -p lock-temp
   cd lock-temp
   mv ../../branches .
-  GIT_INDEX_FILE="$lock_index" git add -f branches
+  GIT_INDEX_FILE="$lock_index" git --work-tree=. add -f branches
   echo "keep_changes $keep_changes" > config
-  GIT_INDEX_FILE="$lock_index" git add -f config
+  GIT_INDEX_FILE="$lock_index" git --work-tree=. add -f config
   cd ..
   rm -rf lock-temp
 fi
