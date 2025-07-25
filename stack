@@ -769,9 +769,9 @@ function rebase
           if [[ ${#SKIPPED} -gt 0 ]]; then
             for commit in "${SKIPPED[@]}"; do
               if ((backporting)); then
-                echo -e "Keeping \e[97m$commit\e[0m (from \e[34m$last_provenance\e[0m) as it hasn't yet been used"
-                THIS_REMAP["$commit"]="$commit"
-                COMMITS+=("pick $commit")
+                echo -e "DROPPING \e[97m$commit\e[0m (from \e[34m$last_provenance\e[0m) as it hasn't yet been used"
+#                THIS_REMAP["$commit"]="$commit"
+#                COMMITS+=("pick $commit")
               fi
             done
           fi
