@@ -1043,6 +1043,7 @@ function cherry-pick
     git reset --hard HEAD &> /dev/null
     local displaying=0
     while [[ -n "$(find ../.git/modules/ocaml/rr-cache -type f -newermt "$cherry_stamp")" ]]; do
+      cherry_stamp="$(date '+%Y-%m-%d %H:%M:%S.%N')"
       if ((!displaying)); then
         echo -n 'Waiting for rr-cache to stabilize: '
         displaying=1
