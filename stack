@@ -137,6 +137,8 @@ start_time=$(date '+%Y-%m-%d %H:%M:%S')
 
 declare -A HEADS
 
+ALL_TARGETS=(trunk 5.4 5.3 5.2 5.1 5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08)
+
 if [[ -z $lock ]]; then
   # The default is to preserve the Changes file
   keep_changes=1
@@ -275,7 +277,6 @@ if [[ -z $lock ]]; then
   BRANCHES+=(camlheader-search unified-camlheader-search@fixup~1 unified-camlheader-search-5.0@fixup~1 unified-camlheader-search-4.14@fixup~1 unified-camlheader-search-4.13@fixup~1 unified-camlheader-search-4.12@fixup~1 unified-camlheader-search-4.11@fixup~1 unified-camlheader-search-4.10@fixup~1)
 
   TARGETS=(trunk 5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08)
-  ALL_TARGETS=(trunk 5.4 5.3 5.2 5.1 5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08)
 
   # Check the branches all exist and collect the commits to stack
   for instruction in "${BRANCHES[@]}"; do
@@ -327,6 +328,8 @@ if [[ -z $lock ]]; then
   done > ../branches
 
 else
+  TARGETS=()
+  BRANCHES=()
   while read -r branch head; do
     if [[ $branch = ${branch#relocatable-base-} ]]; then
       BRANCHES+=($branch)
@@ -381,8 +384,20 @@ function commit-basis
 {
   base="$(git merge-base $1 upstream/trunk)"
   if [[ -z ${FIRST_BRANCH["$base"]} ]]; then
-    echo "Unable to work out basis for $1"
-    exit 1
+    for target in "${ALL_TARGETS[@]}" failed; do
+      if [[ $target = 'failed' ]]; then
+        echo "Unable to work out basis for $1"
+        exit 1
+      fi
+      test_head="${HEADS["relocatable-base-$target"]}"
+      if [[ -z $test_head ]]; then
+        test_head="$(git merge-base upstream/$target upstream/trunk)"
+      fi
+      if is-backport "$1" "$test_head"; then
+        base="$target"
+        break
+      fi
+    done
   else
     base="${FIRST_BRANCH["$base"]}"
   fi
@@ -421,7 +436,11 @@ if [[ ! -e $state_file ]]; then
     echo -n 'Calculating the menu... '
   fi
   for target in "${ALL_TARGETS[@]}"; do
-    base="$(git merge-base ${HEADS["relocatable-base-$target"]} upstream/trunk)"
+    if [[ -n ${HEADS["relocatable-base-$target"]+x} ]]; then
+      base="$(git merge-base ${HEADS["relocatable-base-$target"]} upstream/trunk)"
+    else
+      base="$(git merge-base upstream/$target upstream/trunk)"
+    fi
     FIRST_BRANCH["$base"]="$target"
   done
 
@@ -1467,7 +1486,8 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
       declare -gA THIS_PROVENANCE
       declare -gA THIS_REMAP
       if [[ -n $target_branch ]]; then
-        THIS_TOUCHED["$target_branch"]="$(git rev-parse $target_branch)"
+#        THIS_TOUCHED["$target_branch"]="$(git rev-parse $target_branch)"
+        THIS_TOUCHED["$target_branch"]="${HEADS[$target_branch]}"
       fi
       target_branch="backport-${arg#relocatable-base-}"
       echo -e "Creating branch \e[34m$target_branch\e[0m on \e[34m$arg\e[0m"
@@ -1520,7 +1540,8 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
                 TOUCHED["$prov"]=1
                 if [[ ! $prov =~ ^@ ]]; then
                   if [[ -z ${THIS_TOUCHED["$prov"]+x} ]]; then
-                    THIS_TOUCHED["$prov"]="$(git rev-parse "$prov")"
+#                    THIS_TOUCHED["$prov"]="$(git rev-parse "$prov")"
+                    THIS_TOUCHED["$prov"]="${HEADS["$prov"]}"
                   fi
                 fi
               fi
@@ -1557,7 +1578,8 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
               TOUCHED["$prov"]=1
               if [[ ! $prov =~ ^@ ]]; then
                 if [[ -z ${THIS_TOUCHED["$prov"]+x} ]]; then
-                  THIS_TOUCHED["$prov"]="$(git rev-parse "$prov")"
+#                  THIS_TOUCHED["$prov"]="$(git rev-parse "$prov")"
+                  THIS_TOUCHED["$prov"]="${HEADS["$prov"]}"
                 fi
               fi
               count="${INSTR[1]}"
