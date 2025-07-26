@@ -1857,12 +1857,14 @@ echo -e " - Identical shas \e[90mgreyed out\e[0m;"
 echo -e " - Differ only by commit date (old stack bug) \e[32min green\e[0m;"
 echo -e " - Final tree identical but commit sequence differs \e[33min yellow\e[0m;"
 echo -e " - Trees differ \e[31min red\e[0m with differences shown"
+differ=0
 for root in "${TARGETS[@]}"; do
   calculated_sha="$(git -C "$dir" rev-parse backport-$root)"
   recorded_sha="${BACKPORTS[backport-$root]}"
   if [[ $calculated_sha = $recorded_sha ]]; then
     echo -e "backport-$root: \e[90m$calculated_sha $recorded_sha\e[0m"
   elif ! git -C "$dir" diff --exit-code --quiet $recorded_sha $calculated_sha; then
+    differ=1
     echo -e "backport-$root: $calculated_sha \e[31m$recorded_sha\e[0m"
     if [[ ${REBASE_ROOTS[backport-$root]} = ${HEADS[relocatable-base-$root]} ]]; then
       git --no-pager -C "$dir" diff --stat $recorded_sha $calculated_sha
@@ -1878,6 +1880,7 @@ for root in "${TARGETS[@]}"; do
     if [[ $cleaned_sha = $calculated_sha ]]; then
       echo -e "backport-$root: $calculated_sha \e[32m$recorded_sha\e[0m"
     else
+      differ=1
       echo -e "backport-$root: $calculated_sha \e[33m$recorded_sha\e[0m"
     fi
   fi
@@ -1898,7 +1901,12 @@ if [[ ${#UNTOUCHED} -gt 0 ]]; then
 fi
 
 if [[ ! -e $lock_index ]]; then
-  exit 0
+  if ((differ)); then
+    echo "Lock failed to build correctly!"
+    exit 1
+  else
+    exit 0
+  fi
 fi
 
 cd "$dir"
