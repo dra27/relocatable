@@ -1036,6 +1036,19 @@ function cherry-pick
   declare -gA RERERE
   local conflicts=0
   cherry_stamp="$(date '+%Y-%m-%d %H:%M:%S.%N')"
+  local displaying=0
+  while [[ -n "$(find ../.git/modules/ocaml/rr-cache -type f -newermt "$cherry_stamp")" ]]; do
+    cherry_stamp="$(date '+%Y-%m-%d %H:%M:%S.%N')"
+    if ((!displaying)); then
+      echo -n 'Waiting for rr-cache to stabilize: '
+      displaying=1
+    fi
+    sleep 0.1
+    echo -n '.'
+  done
+  if ((displaying)); then
+    echo
+  fi
   # Initially cherry-pick without using rerere
   git -c rerere.enabled=false cherry-pick --no-commit "$1" &> /dev/null
   # Now scan the status for any files with conflicts and, if found, compute
@@ -1060,19 +1073,6 @@ function cherry-pick
   # turned on.
   if ((conflicts)); then
     git reset --hard HEAD &> /dev/null
-    local displaying=0
-    while [[ -n "$(find ../.git/modules/ocaml/rr-cache -type f -newermt "$cherry_stamp")" ]]; do
-      cherry_stamp="$(date '+%Y-%m-%d %H:%M:%S.%N')"
-      if ((!displaying)); then
-        echo -n 'Waiting for rr-cache to stabilize: '
-        displaying=1
-      fi
-      sleep 0.1
-      echo -n '.'
-    done
-    if ((displaying)); then
-      echo
-    fi
     git cherry-pick --no-commit "$1" &> /dev/null
   fi
   if [[ $keep_changes -eq 0 ]]; then
