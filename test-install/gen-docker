@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+
+cat > Dockerfile <<"EOF"
+FROM ocaml/opam:ubuntu-24.04-opam AS base
+
+RUN sudo apt-get update && sudo apt-get install -y gawk autoconf2.69
+RUN sudo apt-get install -y vim
+
+RUN git clone https://github.com/dra27/ocaml.git
+WORKDIR ocaml
+
+EOF
+
+function build-branch
+{
+  case $1 in
+    4.14|5.*)
+      echo "RUN ./configure -C --prefix \$PWD/_opam --docdir \$PWD/_opam/doc/ocaml --enable-native-toplevel$6";;
+    *)
+      echo "RUN ./configure -C --prefix \$PWD/_opam --docdir \$PWD/_opam/doc/ocaml$6";;
+  esac
+  case $1 in
+    4.08|4.09)
+      echo "RUN make -j world.opt";;
+    *)
+      echo "RUN make -j";;
+  esac
+  case $1 in
+    4.14|5.*)
+      ;;
+    *)
+      echo "RUN make -j ocamlnat";;
+  esac
+  echo "RUN make install"
+  echo "RUN mv _opam _opam.ref"
+  # Test the Sprinkle commit
+  echo "RUN git checkout $2"
+  echo "RUN make install && rm -f _opam/lib/ocaml/camlheader_ur && diff -q _opam _opam.ref && rm -rf _opam"
+}
+
+versions=(4.08 4.09 4.10 4.11 4.12 4.13 4.14 5.0 5.1 5.2 5.3 5.4 trunk)
+
+for branch in "${versions[@]}"; do
+  base=$(git -C ../ocaml log -S enable-runtime-search -1 --format=%H origin/backport-$branch)
+  sprinkle=$(git -C ../ocaml log -S COMPILER_ARTEFACT_DIRS -1 --format=%H origin/backport-$branch)
+  clone=$(git -C ../ocaml log -S _clone_MKDIR -1 --format=%H origin/backport-$branch)
+  straighten=$(git -C ../ocaml rev-parse "$clone~6")
+  subdir=$(git -C ../ocaml rev-parse "$clone~5")
+  for sha in $base $sprinkle $straighten $subdir $clone; do
+    echo "$branch: $(git -C ../ocaml log --oneline -1 "$sha")"
+  done >&2
+  echo "FROM base AS test-$branch-vanilla"
+  echo "RUN git checkout $base"
+  build-branch "$branch" "$sprinkle" "$straighten" "$subdir" "$clone"
+  echo "FROM base AS test-$branch-relocatable"
+  echo "RUN git checkout $base"
+  build-branch "$branch" "$sprinkle" "$straighten" "$subdir" "$clone" ' --with-relative-libdir=../lib/ocaml --enable-runtime-search=always --enable-runtime-search-target'
+done >> Dockerfile
+
+cat >> Dockerfile <<"EOF"
+
+FROM base AS collect
+WORKDIR /home/opam
+EOF
+
+for branch in "${versions[@]}"; do
+  echo "COPY --from=test-$branch-vanilla /home/opam/ocaml/config.cache cache-$branch-vanilla"
+  echo "COPY --from=test-$branch-relocatable /home/opam/ocaml/config.cache cache-$branch-relocatable"
+done >> Dockerfile
