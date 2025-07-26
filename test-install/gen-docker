@@ -6,36 +6,63 @@ FROM ocaml/opam:ubuntu-24.04-opam AS base
 RUN sudo apt-get update && sudo apt-get install -y gawk autoconf2.69
 RUN sudo apt-get install -y vim
 
+ENV OPAMYES="1" OCAMLCONFIRMLEVEL="unsafe-yes" OPAMPRECISETRACKING="1"
+RUN sudo ln -f /usr/bin/opam-2.3 /usr/bin/opam && opam update
+
 RUN git clone https://github.com/dra27/ocaml.git
 WORKDIR ocaml
 
 EOF
 
+function git-checkout
+{
+  echo "RUN git checkout $1 || git fetch origin && git checkout $1"
+}
+
 function build-branch
 {
+  git-checkout "$2"
   case $1 in
     4.14|5.*)
-      echo "RUN ./configure -C --prefix \$PWD/_opam --docdir \$PWD/_opam/doc/ocaml --enable-native-toplevel$6";;
+      echo 'RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml --enable-native-toplevel'"$7";;
     *)
-      echo "RUN ./configure -C --prefix \$PWD/_opam --docdir \$PWD/_opam/doc/ocaml$6";;
+      echo 'RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml'"$7";;
   esac
   case $1 in
     4.08|4.09)
-      echo "RUN make -j world.opt";;
+      echo 'RUN make -j world.opt';;
     *)
-      echo "RUN make -j";;
+      echo 'RUN make -j';;
   esac
   case $1 in
     4.14|5.*)
       ;;
     *)
-      echo "RUN make -j ocamlnat";;
+      echo 'RUN make -j ocamlnat';;
   esac
-  echo "RUN make install"
-  echo "RUN mv _opam _opam.ref"
-  # Test the Sprinkle commit
-  echo "RUN git checkout $2"
-  echo "RUN make install && rm -f _opam/lib/ocaml/camlheader_ur && diff -q _opam _opam.ref && rm -rf _opam"
+  echo 'RUN make install'
+  echo 'RUN mv _opam _opam.ref'
+  # Ensure the Sprinkle commit doesn't change the installation
+  git-checkout "$3"
+  echo 'RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam'
+  # Test the Straighten commit
+  git-checkout "$4"
+  echo 'RUN if grep '\''(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))'\'' * -rI; then false; fi'
+  echo 'RUN if test -n "$(grep '\''INSTALL_LIBDIR_[A-Za-z_]* *:\?='\'' * -rI | grep -Fvx '\''otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)'\'' | grep -v '\''^Makefile.common:'\'')"; then grep '\''INSTALL_LIBDIR_[A-Za-z_]* *:\?='\'' * -rI | grep -v '\''^Makefile.common:'\''; false; fi'
+  # Test the SUBDIR_NAME commit
+  git-checkout "$5"
+  echo 'RUN if grep '\''^ROOTDIR *='\'' * -rIl | grep -v '\''^\(manual\|testsuite\)'\'' | xargs grep -L SUBDIR_NAME | grep -vx '\''Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'\''; then grep '\''^ROOTDIR *='\'' * -rIl | grep -v '\''^\(manual\|testsuite\)'\'' | xargs grep -L SUBDIR_NAME | grep -vx '\''Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'\''; false; fi'
+  # Test the revised target
+  git-checkout "$6"
+  echo 'RUN if grep '\''INSTALL_\(DATA\|PROG\)'\'' * -rI | grep -v '\''^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'\''; then false; fi'
+  echo 'RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam'
+  echo 'RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi'
+  echo 'RUN make INSTALL_MODE=display install'
+  echo 'RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install'
+  echo 'RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install'
+  echo 'RUN test ! -d _opam'
+  echo 'RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .'
+  echo 'RUN opam install ocaml-variants --assume-built'
 }
 
 versions=(4.08 4.09 4.10 4.11 4.12 4.13 4.14 5.0 5.1 5.2 5.3 5.4 trunk)
@@ -50,11 +77,9 @@ for branch in "${versions[@]}"; do
     echo "$branch: $(git -C ../ocaml log --oneline -1 "$sha")"
   done >&2
   echo "FROM base AS test-$branch-vanilla"
-  echo "RUN git checkout $base"
-  build-branch "$branch" "$sprinkle" "$straighten" "$subdir" "$clone"
+  build-branch "$branch" "$base" "$sprinkle" "$straighten" "$subdir" "$clone"
   echo "FROM base AS test-$branch-relocatable"
-  echo "RUN git checkout $base"
-  build-branch "$branch" "$sprinkle" "$straighten" "$subdir" "$clone" ' --with-relative-libdir=../lib/ocaml --enable-runtime-search=always --enable-runtime-search-target'
+  build-branch "$branch" "$base" "$sprinkle" "$straighten" "$subdir" "$clone" ' --with-relative-libdir=../lib/ocaml --enable-runtime-search=always --enable-runtime-search-target'
 done >> Dockerfile
 
 cat >> Dockerfile <<"EOF"
