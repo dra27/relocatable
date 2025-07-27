@@ -1136,36 +1136,37 @@ function coreboot
       git reflog --format='%h %p' > ../.reflog-all
       echo 'done!'
     fi
-    cached="$(grep " ${code_sha}\$" ../.reflog-all | head -n 1 | cut -f1 -d' ')"
-    if [[ -n $cached ]] && git diff-tree --no-commit-id --name-only -r "$cached" | grep -Fq 'boot/ocaml'; then
-      # This code commit has a bootstrap parent - so we can search for a unified commit
-      combined=''
-      while read -r commit; do
-        if git diff --quiet $cached $commit; then
-          combined="$commit"
-          break;
+    for cached in $(grep " ${code_sha}\$" ../.reflog-all | cut -f1 -d' '); do
+      if [[ -n $cached ]] && git diff-tree --no-commit-id --name-only -r "$cached" | grep -Fq 'boot/ocaml'; then
+        # This code commit has a bootstrap parent - so we can search for a unified commit
+        combined=''
+        while read -r commit; do
+          if git diff --quiet $cached $commit; then
+            combined="$commit"
+            break;
+          fi
+        done < <(grep " ${head_sha}\$" ../.reflog-all | cut -f1 -d' ' | sort | uniq)
+        if [[ -n $combined ]] && git diff-tree --no-commit-id --name-only -r "$combined" | grep -Fq 'boot/ocaml'; then
+          echo "  Re-using previous coreboot computation from $combined"
+          git reset --hard $combined &> /dev/null
+          if [[ $(git log -1 --format='%cn <%ce> on %cd') != $(git log -1 --format='%an <%ae> on %ad') ]]; then
+            reset-committer
+            new="$(git rev-parse --short HEAD)"
+            echo "  Reset committer information on $combined to give $new"
+            combined="$new"
+          fi
+          if ((backporting)); then
+            THIS_REMAP["$current_pick"]="$combined"
+            COMMITS+=("coreboot $combined")
+            PROVENANCE["$combined"]="@$1"
+            PROVENANCE["@$combined"]="$target_branch"
+            THIS_PROVENANCE["$combined"]="@$1"
+            THIS_PROVENANCE["@$combined"]="$target_branch"
+          fi
+          return
         fi
-      done < <(grep " ${head_sha}\$" ../.reflog-all | cut -f1 -d' ' | sort | uniq)
-      if [[ -n $combined ]] && git diff-tree --no-commit-id --name-only -r "$combined" | grep -Fq 'boot/ocaml'; then
-        echo "  Re-using previous coreboot computation from $combined"
-        git reset --hard $combined &> /dev/null
-        if [[ $(git log -1 --format='%cn <%ce> on %cd') != $(git log -1 --format='%an <%ae> on %ad') ]]; then
-          reset-committer
-          new="$(git rev-parse --short HEAD)"
-          echo "  Reset committer information on $combined to give $new"
-          combined="$new"
-        fi
-        if ((backporting)); then
-          THIS_REMAP["$current_pick"]="$combined"
-          COMMITS+=("coreboot $combined")
-          PROVENANCE["$combined"]="@$1"
-          PROVENANCE["@$combined"]="$target_branch"
-          THIS_PROVENANCE["$combined"]="@$1"
-          THIS_PROVENANCE["@$combined"]="$target_branch"
-        fi
-        return
       fi
-    fi
+    done
     git reset --hard $head_sha &> /dev/null
     if ! ./configure --disable-native-compiler --disable-ocamldoc --disable-ocamltest --disable-debugger > _log 2>&1; then
       cat _log
