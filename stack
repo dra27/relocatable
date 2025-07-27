@@ -974,7 +974,7 @@ function reconfigure
         fi
       fi
       if [[ -e utils/config.common.ml.in ]]; then
-        if [[ -z "$(git status --porcelain | fgrep 'DU utils/config.common.ml.in')" ]]; then
+        if [[ -z "$(git status --porcelain --no-renames | grep '\(DU\|A \) utils/config.common.ml.in')" ]]; then
           case "$target" in
             relocatable-base-trunk|relocatable-base-5.4|relocatable-base-5.3|relocatable-base-5.2)
               ;;
