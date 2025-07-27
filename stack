@@ -886,6 +886,7 @@ function rebase
           next="${WORKING[0]}"
           if [[ ${next%% *} = 'fixup' ]]; then
             echo "  Deferring coreboot - next command is a fixup"
+            deferred_coreboot="$current_pick"
             if ! git commit --reuse-message="$sha" &> _log; then
               cat _log
               rm _log
@@ -1382,6 +1383,7 @@ function commit
     previous="${COMMITS[-1]}"
     if [[ ${previous%% *} = 'coreboot' ]]; then
       echo "  Now executing deferred coreboot"
+      current_pick="$deferred_coreboot"
       # It's slightly simpler just repeat the coreboot commit rather than
       # threading this through the entire fixup logic that it needs to
       # coldstart with HEAD~1. The changes would either need stashing or
