@@ -408,6 +408,7 @@ function commit-basis
 
 declare -A PICKED
 declare -A TOUCHED
+declare -A TAKEN
 TOUCHED['stop-backporting']=1
 COMMANDS=()
 COMMITS=()
@@ -586,6 +587,8 @@ else
         target_branch="${line#* }";;
       touched)
         TOUCHED["${line#* }"]=1;;
+      taken)
+        TAKEN["${line#* }"]=1;;
       lock)
         echo "${line#* }" >> ../.stack-branches;;
       cherry-stamp)
@@ -648,6 +651,9 @@ function abort
     done;
     for branch in "${!TOUCHED[@]}"; do
       echo "touched $branch"
+    done;
+    for branch in "${!TAKEN[@]}"; do
+      echo "taken $branch"
     done;
     echo "start $start_time"
     echo "cherry-stamp $cherry_stamp"
@@ -788,10 +794,13 @@ function rebase
           if [[ ${#SKIPPED} -gt 0 ]]; then
             for commit in "${SKIPPED[@]}"; do
               if ((backporting)); then
-                echo -e "Keeping \e[97m$commit\e[0m (from \e[34m$last_provenance\e[0m) as it hasn't yet been used"
-                echo "NB verb is $verb"
-                THIS_REMAP["$commit"]="$commit"
-                COMMITS+=("pick $commit")
+                if [[ -z ${TAKEN[${PROVENANCE[$commit]}]} ]]; then
+                  echo -e "Keeping \e[97m$commit\e[0m (from \e[34m$last_provenance\e[0m) as the branch hasn't been used"
+                  THIS_REMAP["$commit"]="$commit"
+                  COMMITS+=("pick $commit")
+                else
+                  echo -e "Dropping \e[97m$commit\e[0m (from \e[34m$last_provenance\e[0m) as other commits from the branch have been used"
+                fi
               fi
             done
           fi
@@ -1364,6 +1373,7 @@ function commit
     THIS_PROVENANCE["@$head"]="$target_branch"
     show-rr-resolutions "$cherry_stamp" "$head"
     #echo "Committed HEAD $head"
+    TAKEN["$this_provenance"]=1
     if ((backporting)); then
       THIS_REMAP["$current_pick"]="$head"
     fi
