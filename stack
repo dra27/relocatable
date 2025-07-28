@@ -1436,7 +1436,7 @@ function apply-cache
         ;;
       *)
         case $verb,${ALL_REMAPS[$sha]} in
-          pick,|coreboot,)
+          pick,|coreboot,|bootstrap,)
             ;;
           *)
             test_WORKING+=("$verb ${ALL_REMAPS[$sha]}");;
