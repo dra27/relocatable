@@ -1451,6 +1451,7 @@ use_caching=1
 # List TARGETS here to disable the use of the cache (useful for inspecting)
 declare -A SKIP_CACHE #=(['4.14']='')
 
+debug_new_mechanism=0
 use_new_mechanism=1
 
 declare -A THIS_TOUCHED
@@ -1502,6 +1503,7 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
       target="$arg"
       WORKING=()
       backporting=1
+      failure=0
       for cmd in "${COMMITS[@]}"; do
         verb="${cmd%% *}"
         sha="${cmd#* }"
@@ -1509,17 +1511,7 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
           stop-backporting)
             WORKING+=('stop-backporting');;
           pick|bootstrap|coreboot)
-            if ((use_new_mechanism)); then
-              introduces="${FIRST_BRANCH["$sha"]}"
-              if [[ -z $introduces || $target = "relocatable-base-$introduces" ]]; then
-                older=0
-                new_older=0
-              else
-                older=1
-                new_older=1
-#                display-with-provenance "Skipping \e[97m$sha\e[0m" "$sha" "as it's older than $target - $(git log -n 1 --format=%s $sha)"
-              fi
-            else
+            if ((!use_new_mechanism || debug_new_mechanism)); then
               if ! is-backport "$sha" "${HEADS[$target]}"; then
                 if is-backport "$sha" "$(merge-base 'upstream/trunk' "${HEADS[$target]}")"; then
 #                  echo -e "Taking \e[97m$sha\e[0m ($(provenance "$sha")) by the new rule! - $(git log -n 1 --format=%s $sha)"
@@ -1535,10 +1527,26 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
                 old_older=0
               fi
             fi
-#            if [[ $new_older != $old_older ]]; then
-#              echo "NOPE! This is $sha and ${PROVENANCE[$sha]} and ${FIRST_BRANCH["$sha"]}"
-#              exit 1
-#            fi
+            if ((use_new_mechanism || debug_new_mechanism)); then
+              introduces="${FIRST_BRANCH["$sha"]}"
+              if [[ -z $introduces || $target = "relocatable-base-$introduces" ]]; then
+                older=0
+                new_older=0
+              else
+                older=1
+                new_older=1
+#                display-with-provenance "Skipping \e[97m$sha\e[0m" "$sha" "as it's older than $target - $(git log -n 1 --format=%s $sha)"
+              fi
+            fi
+            if ((debug_new_mechanism)) && [[ $new_older != $old_older ]]; then
+              echo "NOPE! This is $sha and ${PROVENANCE[$sha]} and ${FIRST_BRANCH["$sha"]}"
+              if ((new_older)); then
+                echo "New mechanism skips this commit; old mechanism takes it"
+              else
+                echo "New mechanism takes this commit; old mechanism skips it"
+              fi
+              failure=1
+            fi
             if ((older)); then
               WORKING+=("next $cmd")
             else
@@ -1639,6 +1647,9 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
             exit 1;;
         esac
       done
+      if ((failure)); then
+        exit 1
+      fi
       COMMITS=()
       for cmd in "${WORKING[@]}"; do
         if [[ ${cmd%% *} != 'next' ]]; then
