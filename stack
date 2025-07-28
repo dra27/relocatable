@@ -1164,6 +1164,7 @@ function coreboot
             THIS_PROVENANCE["$combined"]="@$1"
             THIS_PROVENANCE["@$combined"]="$target_branch"
           fi
+          current_pick=''
           return
         fi
       fi
@@ -1242,6 +1243,7 @@ function coreboot
           THIS_PROVENANCE["$head"]="@$1"
           THIS_PROVENANCE["@$head"]="$target_branch"
         fi
+        current_pick=''
       fi
     fi
   fi
