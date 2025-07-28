@@ -1530,6 +1530,11 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
             if ((use_new_mechanism || debug_new_mechanism)); then
               introduces="${FIRST_BRANCH["$sha"]}"
               if [[ -z $introduces || $target = "relocatable-base-$introduces" ]]; then
+                # The first branch cherry-picked may cherry-pick _exactly_
+                # (assuming the committer date is equal to author date, etc.),
+                # so blank out the entry in FIRST_BRANCH to ensure that the
+                # commit is not suddenly considered old next time round!
+                FIRST_BRANCH["$sha"]=''
                 older=0
                 new_older=0
               else
