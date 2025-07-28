@@ -1435,9 +1435,12 @@ function apply-cache
       fixup)
         ;;
       *)
-        if [[ $verb != 'pick' || -n ${ALL_REMAPS[$sha]} ]]; then
-          test_WORKING+=("$verb ${ALL_REMAPS[$sha]}")
-        fi;;
+        case $verb,${ALL_REMAPS[$sha]} in
+          pick,|coreboot,)
+            ;;
+          *)
+            test_WORKING+=("$verb ${ALL_REMAPS[$sha]}");;
+        esac;;
     esac
   done
 }
