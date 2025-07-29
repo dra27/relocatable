@@ -1305,7 +1305,20 @@ function commit
   done
   TO_DELETE=()
   this_provenance="${PROVENANCE["$1"]}"
-  if [[ -z "$(git status --porcelain)" && ! "${WORKING[0]}" =~ ^fixup' ' ]]; then
+  next_is_non_empty_fixup=0
+  next_is_empty_fixup=0
+  if [[ -z "$(git status --porcelain)" ]]; then
+    next_cmd="${WORKING[0]}"
+    if [[ $next_cmd =~ ^fixup' ' ]]; then
+      next_cmd_sha="${next_cmd#* }"
+      if [[ -n "$(git diff-tree --no-commit-id --name-only -r "$next_cmd_sha")" ]]; then
+        next_is_non_empty_fixup=1
+      else
+        next_is_empty_fixup=1
+      fi
+    fi
+  fi
+  if [[ -z "$(git status --porcelain)" ]] && ((!next_is_non_empty_fixup)); then
     if git commit --allow-empty -m Empty &> /dev/null; then
       git reset --hard HEAD~1 &> /dev/null
     fi
@@ -1326,6 +1339,10 @@ function commit
       if [[ -z $4 ]]; then
         THIS_REMAP["$current_pick"]=''
       fi
+    fi
+    if ((next_is_empty_fixup)); then
+      display-with-provenance "Dropping empty \e[97m$next_cmd_sha\e[0m" "$next_cmd_sha" "to $target_branch - $(git log -n 1 --format='%s' $next_cmd_sha)"
+      WORKING=("${WORKING[@]:1}")
     fi
     current_pick=''
     head="$(git rev-parse --short HEAD)"
