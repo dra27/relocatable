@@ -1,46 +1,195 @@
 #!/usr/bin/env bash
 
-cat > Dockerfile <<"EOF"
+function configure-git-for-stack
+{
+  cat <<"EOF"
+  # Configure Git
+  # Explicitly set user.name and user.email (for reproducibility)
+  git config --local user.name 'David Allsopp'
+  git config --local user.email 'david.allsopp@metastack.com'
+  # Ensure the normal merge style is in effect or rerere doesn't appear to work!
+  git config --local merge.conflictstyle merge
+  # Enable rerere with ~10 year retention of resolutions
+  git config --local rerere.enabled true
+  git config --local gc.rerereResolved 3650
+  # Speed up reconfiguration stage by sharing config.status
+  git config --local ocaml.configure-cache ..
+  # Necessary for some of the more complicated rebasing
+  git config --local merge.renameLimit 150000
+EOF
+}
+
+cat > Dockerfile <<EOF
 FROM ocaml/opam:ubuntu-24.04-opam AS base
 
-RUN sudo apt-get update && sudo apt-get install -y gawk autoconf2.69
-RUN sudo apt-get install -y vim
+RUN <<End-of-Script
+  sudo apt-get update -y
+  sudo apt-get install -y gawk autoconf2.69 vim
 
-# Clone relocatable
-RUN git clone https://github.com/dra27/relocatable.git
+  # Global Git configuration
+  git config --global user.name 'David Allsopp'
+  git config --global user.email 'david.allsopp@metastack.com'
+  git config --global protocol.file.allow always
 
-WORKDIR relocatable
+  # Clone relocatable
+  git clone https://github.com/dra27/relocatable.git
 
-RUN git submodule update --init ocaml
+  # Clone ocaml
+  cd relocatable
+  git submodule update --init ocaml
 
-# Configure Git
-WORKDIR ocaml
-RUN git config --local user.name 'David Allsopp'
-RUN git config --local user.email 'david.allsopp@metastack.com'
-# Ensure the normal merge style is in effect or rerere doesn't appear to work!
-RUN git config --local merge.conflictstyle merge
-# Enable rerere with ~10 year retention of resolutions
-RUN git config --local rerere.enabled true
-RUN git config --local gc.rerereResolved 3650
-# Speed up reconfiguration stage by sharing config.status
-RUN git config --local ocaml.configure-cache ..
-# Necessary for some of the more complicated rebasing
-RUN git config --local merge.renameLimit 150000
-# Require ocaml/ocaml#14050
-RUN git checkout pre-commit
-# Check commits created by the script (disable the configure check)
-RUN sed -e '/If any/iexit $STATUS' tools/pre-commit-githook > ../.git/modules/ocaml/hooks/pre-commit
-RUN chmod +x ../.git/modules/ocaml/hooks/pre-commit
-# Sync with upstream
-RUN git remote add upstream https://github.com/ocaml/ocaml.git --fetch
-RUN git checkout relocatable-locks
+  cd ocaml
+  git remote add --fetch upstream https://github.com/ocaml/ocaml.git
 
+$(configure-git-for-stack)
+
+  # Set-up the pre-commit githook
+  # Require ocaml/ocaml#14050
+  git show origin/pre-commit:tools/pre-commit-githook \
+    | sed -e '/If any/iexit \$STATUS' \
+      > ../.git/modules/ocaml/hooks/pre-commit
+  chmod +x ../.git/modules/ocaml/hooks/pre-commit
+
+  git checkout relocatable-locks
+End-of-Script
+
+FROM base AS builder
+RUN <<End-of-Script
+  git clone --shared relocatable build
+  cd build
+  git submodule init ocaml
+  git clone /home/opam/relocatable/ocaml --shared --no-checkout .git/modules/ocaml
+  mv .git/modules/ocaml/.git/* .git/modules/ocaml/
+  rmdir .git/modules/ocaml/.git
+  cp ../relocatable/.git/modules/ocaml/hooks/pre-commit .git/modules/ocaml/hooks/
+  git submodule update ocaml
+  cd ocaml
+  git remote set-url origin https://github.com/dra27/ocaml.git
+  git remote add --fetch upstream https://github.com/ocaml/ocaml.git
+
+$(configure-git-for-stack)
+End-of-Script
+WORKDIR /home/opam/build/ocaml
 EOF
+
+locks=($(git -C ocaml log --format=%h --first-parent --reverse origin/relocatable-locks | tail -n +2))
+
+function divide
+{
+  if (( $# <= 17 )); then
+    for lock in "${@:2}"; do
+      cat >> Dockerfile <<EOF
+
+FROM builder AS lock-$lock
+RUN test -n "\$(git branch relocatable-locks --contains '$lock' 2>/dev/null)" || { git -C .. pull origin main && git fetch --multiple upstream origin && git checkout -B relocatable-locks origin/relocatable-locks ; }
+RUN script --return --command '../stack $lock || { echo \"STACK FAILURE\"; rm -f ../.stack-state; git reset --hard HEAD; git clean -dfx &>/dev/null; }' ../log
+RUN sed -i '/use_caching=/s/1/0/' ../stack
+RUN script --return --append  --command '../stack $lock || echo \"STACK FAILURE\"' ../log
+RUN git gc --no-prune
+EOF
+    done
+    cat >> Dockerfile <<EOF
+
+FROM base AS collector${1:+-}$1
+EOF
+    for lock in "${@:2}"; do
+      cat >> Dockerfile <<EOF
+COPY --chown=opam:opam --from=lock-$lock /home/opam/build/.git/modules/ocaml builds/$lock/.git
+COPY --from=lock-$lock /home/opam/build/log logs/log-$lock
+RUN sed -i -e '/worktree/d' builds/$lock/.git/config
+EOF
+    done
+  else
+    local split="$(( ($# - 1) / 2 ))"
+    local left=(${@:2:$split})
+    local right=(${@:$(($split + 2))})
+    divide "${1}0" "${left[@]}"
+    divide "${1}1" "${right[@]}"
+    cat >> Dockerfile <<EOF
+
+FROM base AS collector${1:+-}$1
+COPY --chown=opam:opam --from=collector-${1}0 /home/opam/builds builds
+COPY --chown=opam:opam --from=collector-${1}0 /home/opam/logs logs
+COPY --chown=opam:opam --from=collector-${1}1 /home/opam/builds builds
+COPY --chown=opam:opam --from=collector-${1}1 /home/opam/logs logs
+EOF
+  fi
+}
+
+divide '' "${locks[@]}"
+
+cat >> Dockerfile <<EOF
+
+FROM collector AS reflog
+RUN <<End-of-Script
+  for lock in ${locks[@]}; do
+    cat builds/\$lock/.git/logs/HEAD
+  done > HEAD
+End-of-Script
+
+FROM base
+COPY --chown=opam:opam --from=collector /home/opam/builds builds
+COPY --chown=opam:opam --from=collector /home/opam/logs logs
+COPY --from=reflog /home/opam/HEAD .
+RUN cat HEAD >> relocatable/.git/modules/ocaml/logs/HEAD && rm -f HEAD
+COPY <<EOF relocatable/.git/modules/ocaml/objects/info/alternates
+EOF
+
+for lock in "${locks[@]}"; do
+  echo "/home/opam/builds/$lock/.git/objects"
+done >> Dockerfile
+
+cat >> Dockerfile <<ZOF
+EOF
+WORKDIR /home/opam/relocatable/ocaml
+RUN <<End-of-Script
+  cat >> rebuild <<"EOF"
+  head="\$(git -C ../../builds/${locks[0]} rev-parse --short relocatable-cache)"
+  for lock in ${locks[@]:1}; do
+    while IFS= read -r line; do
+      args=(\$line)
+      if [[ \${#args[@]} -gt 2 ]]; then
+        parents=("\${args[@]:3}")
+        head=\$(git show --no-patch --format=%B \${args[0]} | git commit-tree -p \$head \${parents[@]/#/-p } \${args[1]})
+      fi
+    done < <(git -C ../../builds/\$lock log --format='%h %t %p' --first-parent --reverse relocatable-cache)
+  done
+  git branch relocatable-cache \$head
+EOF
+  bash rebuild
+  rm rebuild
+  for lock in ${locks[@]}; do
+    script --return --append --command "../stack \$lock" ../log
+  done
+End-of-Script
+ZOF
+
+exit 0
 
 for lock in $(git -C ocaml log --oneline --first-parent --format=%h --reverse origin/relocatable-locks | tail -n +2); do
   echo "FROM base AS lock-$lock"
-  echo "RUN test -n \"\$(git branch relocatable-locks --contains '$lock' 2>/dev/null)\" || git fetch --multiple upstream origin && git reset --hard origin/relocatable-locks"
-  echo "RUN script --return --command '../stack $lock' ../log"
+  echo "RUN git -C .. log --oneline -1 && ls -l ../stack"
+  echo "RUN test -n \"\$(git branch relocatable-locks --contains '$lock' 2>/dev/null)\" || { git -C .. pull origin main && git fetch --multiple upstream origin && git checkout -B relocatable-locks origin/relocatable-locks ; }"
+  # XXX TODO Change this so that it always succeeds - add || touch failure
+  #          Then have a step afterwards which errors if the failure file exists
+  #          When debugging, this allows stacking things on top (and recovery of
+  #          the layer)
+  echo "RUN script --return --command '../stack $lock || { echo \"STACK FAILURE\"; rm -f ../.stack-state; git reset --hard HEAD; git clean -dfx &>/dev/null; }' ../log"
+  # Re-run it, hopefully with the cache triggering for bootstraps!
+  echo "RUN sed -i '/use_caching=/s/1/0/' ../stack"
+  echo "RUN script --return --append  --command '../stack $lock || echo \"STACK FAILURE\"' ../log"
+  # Re-run it, hopefully with the entire cache triggering!
+  echo "RUN sed -i '/use_caching=/s/0/1/' ../stack"
+  echo "RUN script --return --append --command '../stack $lock || echo \"STACK FAILURE\"' ../log"
+  # Possibility that buildkit is cleverly spotting that the tip layer can be
+  # reduced because it is only copied (observation was that the collect image
+  # was pulling from a cache, but when an extra layer was added to this part the
+  # script command needed re-running). Attempt to thwart this (if that's
+  # actually what's happening) by insert a dummy RUN command last so that the
+  # previous layer must be kept in full.
+#  echo "RUN git -C .. fetch origin && git -C .. checkout eefb12"
+#  echo "RUN script --return --append --command '../stack $lock'"
+  echo "RUN git -C .. log --oneline -1 && ls -l ../stack"
 done >> Dockerfile
 
 cat >> Dockerfile <<"EOF"
@@ -51,6 +200,18 @@ EOF
 
 for lock in $(git -C ocaml log --oneline --first-parent --format=%h --reverse origin/relocatable-locks | tail -n +2); do
   echo "COPY --from=lock-$lock /home/opam/relocatable/log lock-$lock"
+  echo "COPY --chown=opam:opam --from=lock-$lock /home/opam/relocatable/.git/modules/ocaml ocaml-$lock"
+done >> Dockerfile
+
+echo 'COPY <<EOF relocatable/.git/modules/ocaml/objects/info/alternates' >> Dockerfile
+for lock in $(git -C ocaml log --oneline --first-parent --format=%h --reverse origin/relocatable-locks | tail -n +2); do
+  echo "/home/opam/ocaml-$lock/objects"
+done >> Dockerfile
+echo 'EOF' >> Dockerfile
+
+for lock in $(git -C ocaml log --oneline --first-parent --format=%h --reverse origin/relocatable-locks | tail -n +2); do
+#  echo "RUN cd ocaml-$lock/logs/refs/heads; for reflog in backport-*; do cat \$reflog >> /home/opam/relocatable/.git/modules/ocaml/logs/refs/heads/\$reflog; done"
+  echo "RUN cat ocaml-$lock/logs/HEAD >> relocatable/.git/modules/ocaml/logs/HEAD"
 done >> Dockerfile
 
 cat >> Dockerfile <<"EOF"
@@ -68,4 +229,6 @@ done >> Dockerfile
 
 cat >> Dockerfile <<ZOF
 EOF
+#Can't do this atm because known failures in two of the earlier locks...
+#RUN if grep '^STACK FAILURE' lock-*; then false; fi
 ZOF
