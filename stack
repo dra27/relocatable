@@ -111,13 +111,24 @@ if [[ -n $1 ]]; then
         case $key in
           keep_changes)
             keep_changes="$value";;
+          legacy_empty_commits)
+            legacy_empty_commits="$value";;
           *)
             echo "Unexpected key in lock config file: $key"
             exit 1;;
         esac
       done < <(git show "$backports:config")
+      if [[ -z $legacy_empty_commits && $keep_changes -eq 1 ]]; then
+        # Slightly grim hack which affects locks c013d8555a, 590e211336 and
+        # b5aa73d89c. These locks were committed where an empty commit followed
+        # by an empty fixup resulted in an empty commit in the series. Newer
+        # locks record legacy_empty_commits=0 explicitly. Although it affects
+        # c013d8555a, there aren't any empty+empty-fixup commits in that lock.
+        legacy_empty_commits=1
+      fi
     else
       keep_changes=0
+      legacy_empty_commits=0
     fi
 
     rm -f ../branches
@@ -142,6 +153,7 @@ ALL_TARGETS=(trunk 5.4 5.3 5.2 5.1 5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08)
 if [[ -z $lock ]]; then
   # The default is to preserve the Changes file
   keep_changes=1
+  legacy_empty_commits=0
 
   # fix-autogen appears first, since it affects any commit touching configure.
   # Part of #10254 allows overriding the autoconf command in autogen.
@@ -633,6 +645,7 @@ if [[ -e ../branches ]]; then
   mv ../../branches .
   GIT_INDEX_FILE="$lock_index" git --work-tree=. add -f branches
   echo "keep_changes $keep_changes" > config
+  echo "legacy_empty_commits $legacy_empty_commits" >> config
   GIT_INDEX_FILE="$lock_index" git --work-tree=. add -f config
   cd ..
   rm -rf lock-temp
@@ -1313,7 +1326,7 @@ function commit
       next_cmd_sha="${next_cmd#* }"
       if [[ -n "$(git diff-tree --no-commit-id --name-only -r "$next_cmd_sha")" ]]; then
         next_is_non_empty_fixup=1
-      else
+      elif [[ $legacy_empty_commits -eq 0 ]]; then
         next_is_empty_fixup=1
       fi
     fi
