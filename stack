@@ -1324,9 +1324,13 @@ function commit
     next_cmd="${WORKING[0]}"
     if [[ $next_cmd =~ ^fixup' ' ]]; then
       next_cmd_sha="${next_cmd#* }"
+      # In the legacy version, the blank commit was always kept, regardless of
+      # whether the commit was empty, so treat _all_ fixup commits as if they
+      # were non-empty in legacy mode.
+      next_is_non_empty_fixup=$legacy_empty_commits
       if [[ -n "$(git diff-tree --no-commit-id --name-only -r "$next_cmd_sha")" ]]; then
         next_is_non_empty_fixup=1
-      elif [[ $legacy_empty_commits -eq 0 ]]; then
+      else
         next_is_empty_fixup=1
       fi
     fi
