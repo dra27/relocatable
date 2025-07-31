@@ -1921,7 +1921,7 @@ if [[ -n $backports ]]; then
   while read -r root sha; do
     BACKPORTS[$root]="$sha"
     REBASE_ROOTS[$root]="${HEADS[relocatable-base-${root#backport-}]}"
-  done < <(git -C "$dir" show "$backports:backports")
+  done < <(git -C "$dir" show "$backports:backports-generated" 2>/dev/null || git -C "$dir" show "$backports:backports")
 else
   # Load from origin
   for root in "${TARGETS[@]}"; do
