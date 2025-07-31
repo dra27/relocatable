@@ -1308,6 +1308,7 @@ function show-rr-resolutions
   fi
 }
 
+declare -A FIXUP_NEXT
 last_provenance='_not_a_provenance_'
 SKIPPED=()
 TO_DELETE=()
@@ -1318,24 +1319,7 @@ function commit
   done
   TO_DELETE=()
   this_provenance="${PROVENANCE["$1"]}"
-  next_is_non_empty_fixup=0
-  next_is_empty_fixup=0
-  if [[ -z "$(git status --porcelain)" ]]; then
-    next_cmd="${WORKING[0]}"
-    if [[ $next_cmd =~ ^fixup' ' ]]; then
-      next_cmd_sha="${next_cmd#* }"
-      # In the legacy version, the blank commit was always kept, regardless of
-      # whether the commit was empty, so treat _all_ fixup commits as if they
-      # were non-empty in legacy mode.
-      next_is_non_empty_fixup=$legacy_empty_commits
-      if [[ -n "$(git diff-tree --no-commit-id --name-only -r "$next_cmd_sha")" ]]; then
-        next_is_non_empty_fixup=1
-      else
-        next_is_empty_fixup=1
-      fi
-    fi
-  fi
-  if [[ -z "$(git status --porcelain)" ]] && ((!next_is_non_empty_fixup)); then
+  if [[ -z "$(git status --porcelain)" && -z "${FIXUP_NEXT[$1]}" ]]; then
     if git commit --allow-empty -m Empty &> /dev/null; then
       git reset --hard HEAD~1 &> /dev/null
     fi
@@ -1356,10 +1340,6 @@ function commit
       if [[ -z $4 ]]; then
         THIS_REMAP["$current_pick"]=''
       fi
-    fi
-    if ((next_is_empty_fixup)); then
-      display-with-provenance "Dropping empty \e[97m$next_cmd_sha\e[0m" "$next_cmd_sha" "to $target_branch - $(git log -n 1 --format='%s' $next_cmd_sha)"
-      WORKING=("${WORKING[@]:1}")
     fi
     current_pick=''
     head="$(git rev-parse --short HEAD)"
@@ -1671,7 +1651,16 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
               while [[ ${#INSTR[@]} -gt 0 ]]; do
                 sha="${INSTR[0]}"
                 INSTR=("${INSTR[@]:1}")
-                WORKING+=("fixup $sha")
+                previous_cmd="${WORKING[-1]}"
+                if [[ -z $(git diff-tree --no-commit-id --name-only -r "$sha") ]]; then
+                  if ((legacy_empty_commits)); then
+                    FIXUP_NEXT["${previous_cmd#* }"]=1
+                  fi
+                  #display-with-provenance "Pruning \e[97m$sha\e[0m" "$sha" "to $target_branch - $(git log -1 --format='%s' $sha)"
+                else
+                  FIXUP_NEXT["${previous_cmd#* }"]=1
+                  WORKING+=("fixup $sha")
+                fi
                 # Add the next command from POPPED and any fixup/next commands
                 # which followed it
                 loop=1
