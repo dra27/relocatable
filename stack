@@ -840,6 +840,7 @@ function rebase
         last_provenance='_not_a_provenance'
         SKIPPED=()
         bootstrap_msg="Bootstrap \e[97m$sha\e[0m to $target_branch ($(git rev-parse --short HEAD))"
+        cherry_stamp="$(date '+%Y-%m-%d %H:%M:%S.%N')"
         display-with-provenance "Bootstrap \e[97m$sha\e[0m" "$sha" "to $target_branch ($(git rev-parse --short HEAD))"
         if [[ ! -e ../.reflog-bootstrap ]]; then
           echo -n 'Scouring reflog for previous bootstraps: '
@@ -848,15 +849,20 @@ function rebase
         fi
         cached="$(grep " $(git rev-parse --short HEAD)$" ../.reflog-bootstrap | head -n 1 | cut -f1 -d' ')"
         if [[ -n $cached ]] && git diff-tree --no-commit-id --name-only -r "$cached" | grep -Fq 'boot/ocaml'; then
-          echo "Re-using previous bootstrap computation from $cached"
           git merge --ff-only $cached &> /dev/null
-          if ((backporting)); then
-            THIS_REMAP["$current_pick"]="$cached"
-            COMMITS+=("bootstrap $cached")
-            PROVENANCE["$cached"]="@$sha"
-            PROVENANCE["@$cached"]="$target_branch"
-            THIS_PROVENANCE["$cached"]="@$sha"
-            THIS_PROVENANCE["@$cached"]="$target_branch"
+          if [[ -s boot/ocamlc ]]; then
+            echo "Re-using previous bootstrap computation from $cached"
+            if ((backporting)); then
+              THIS_REMAP["$current_pick"]="$cached"
+              COMMITS+=("bootstrap $cached")
+              PROVENANCE["$cached"]="@$sha"
+              PROVENANCE["@$cached"]="$target_branch"
+              THIS_PROVENANCE["$cached"]="@$sha"
+              THIS_PROVENANCE["@$cached"]="$target_branch"
+            fi
+          else
+            git reset --hard HEAD~1 &> /dev/null
+            commit "$sha" 'bootstrap $head' "$instr"
           fi
         else
           BOOTSTRAPS+=("$bootstrap_msg")
@@ -894,6 +900,13 @@ function rebase
               git add -- boot/ocamldep
             fi
             git add -- boot/ocamlc boot/ocamllex
+            if [[ -z "$(git status --porcelain)" ]]; then
+              # Bootstrap with no change - record a special commit to cache this
+              truncate --size 0 boot/ocamlc
+              git add -- boot/ocamlc
+              git commit -m 'Bootstrap (empty - for caching)' --no-verify &> /dev/null
+              git reset --hard HEAD~1 &> /dev/null
+            fi
             commit "$sha" 'bootstrap $head' "$instr"
           fi
         fi;;
