@@ -449,6 +449,8 @@ COMMITS=()
 WORKING=()
 base_trunk="${HEADS['relocatable-base-trunk']}"
 if [[ ! -e $state_file ]]; then
+  # Remove files leftover by CTRL+C
+  rm -f _log
   if [[ -n "$(git status --porcelain)" ]]; then
     echo 'The working tree is not clean' >&2
     exit 1
