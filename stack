@@ -77,6 +77,7 @@ function is-backport
 # XXX At the moment, caching and locking _almost_ work, but there seem to be
 #     some instances where rerere files can be missed.
 use_caching=1
+re_cache=0
 declare -A SKIP_CACHE
 
 menu=false
@@ -85,6 +86,9 @@ while true; do
     --cache)
       shift 1
       use_caching=1;;
+    --re-cache)
+      shift 1
+      re_cache=1;;
     --no-cache)
       shift 1
       use_caching=0;;
@@ -1666,6 +1670,9 @@ EOF
           break
         fi
       done < <(git log relocatable-cache --first-parent --format="%h %T")
+      if ((re_cache)); then
+        found_cache=''
+      fi
       if [[ -n $found_cache ]]; then
         # Load the cache
         while read -r from to; do
