@@ -138,6 +138,9 @@ if [[ -n $1 ]]; then
     rm -f ../branches
     cp "${1#@}" ../branches
     backports=''
+    # XXX Hack!
+    keep_changes=1
+    legacy_empty_commits=0
   fi
 else
   lock=''
