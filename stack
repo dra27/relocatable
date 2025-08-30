@@ -74,19 +74,38 @@ function is-backport
   return 1
 }
 
+# XXX At the moment, caching and locking _almost_ work, but there seem to be
+#     some instances where rerere files can be missed.
+use_caching=1
+declare -A SKIP_CACHE
+
 menu=false
-case "$1" in
-  --menu)
-    shift 1
-    menu=true;;
-  --is-backport)
-    if is-backport "$2" "$3"; then
-      echo -e "$2 is \e[97molder\e[0m than $3"
-    else
-      echo -e "$2 is in scope"
-    fi
-    exit 0;;
-esac
+while true; do
+  case "$1" in
+    --cache)
+      shift 1
+      use_caching=1;;
+    --no-cache)
+      shift 1
+      use_caching=0;;
+    --skip-cache)
+      SKIP_CACHE["$2"]=''
+      shift 2;;
+    --menu)
+      shift 1
+      menu=true
+      break;;
+    --is-backport)
+      if is-backport "$2" "$3"; then
+        echo -e "$2 is \e[97molder\e[0m than $3"
+      else
+        echo -e "$2 is in scope"
+      fi
+      exit 0;;
+    *)
+      break;;
+  esac
+done
 
 if [[ -n $1 ]]; then
   if [[ $1 = ${1#@} ]]; then
@@ -1490,12 +1509,6 @@ function apply-cache
     esac
   done
 }
-
-# XXX At the moment, caching will contradict locking. Various things to fix,
-#     e.g. touching the rerere files based on the cache, etc.
-use_caching=1
-# List TARGETS here to disable the use of the cache (useful for inspecting)
-declare -A SKIP_CACHE #=(['4.14']='')
 
 debug_new_mechanism=0
 use_new_mechanism=1
