@@ -166,7 +166,7 @@ for lock in ${locks[@]}; do
   cat <<EOF
 
 FROM unified AS cache-test-$lock
-RUN script --return --command "../stack $lock" ../log
+RUN { git merge-base --is-ancestor $lock relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack $lock" ../log
 EOF
 done >> Dockerfile
 
