@@ -136,6 +136,26 @@ RUN sed -i '/use_caching=/s/1/0/' ../stack
 RUN script --return --append  --command '../stack 54d34a7a07 || echo "STACK FAILURE"' ../log
 RUN git gc --no-prune && sed -i -e '/worktree/d' ../.git/modules/ocaml/config
 
+FROM base AS collector-00
+COPY --chown=opam:opam --from=lock-ef758648dd /home/opam/build/.git/modules/ocaml builds/ef758648dd/.git
+COPY --from=lock-ef758648dd /home/opam/build/log logs/log-ef758648dd
+COPY --chown=opam:opam --from=lock-b026116679 /home/opam/build/.git/modules/ocaml builds/b026116679/.git
+COPY --from=lock-b026116679 /home/opam/build/log logs/log-b026116679
+COPY --chown=opam:opam --from=lock-511e988096 /home/opam/build/.git/modules/ocaml builds/511e988096/.git
+COPY --from=lock-511e988096 /home/opam/build/log logs/log-511e988096
+COPY --chown=opam:opam --from=lock-d2939babd4 /home/opam/build/.git/modules/ocaml builds/d2939babd4/.git
+COPY --from=lock-d2939babd4 /home/opam/build/log logs/log-d2939babd4
+COPY --chown=opam:opam --from=lock-be8c62d74b /home/opam/build/.git/modules/ocaml builds/be8c62d74b/.git
+COPY --from=lock-be8c62d74b /home/opam/build/log logs/log-be8c62d74b
+COPY --chown=opam:opam --from=lock-c007288549 /home/opam/build/.git/modules/ocaml builds/c007288549/.git
+COPY --from=lock-c007288549 /home/opam/build/log logs/log-c007288549
+COPY --chown=opam:opam --from=lock-061acc735f /home/opam/build/.git/modules/ocaml builds/061acc735f/.git
+COPY --from=lock-061acc735f /home/opam/build/log logs/log-061acc735f
+COPY --chown=opam:opam --from=lock-9cb60e14d4 /home/opam/build/.git/modules/ocaml builds/9cb60e14d4/.git
+COPY --from=lock-9cb60e14d4 /home/opam/build/log logs/log-9cb60e14d4
+COPY --chown=opam:opam --from=lock-54d34a7a07 /home/opam/build/.git/modules/ocaml builds/54d34a7a07/.git
+COPY --from=lock-54d34a7a07 /home/opam/build/log logs/log-54d34a7a07
+
 FROM builder AS lock-1fec8b02bf
 RUN test -n "$(git branch relocatable-locks --contains '1fec8b02bf' 2>/dev/null)" || { git -C .. pull origin main && git fetch --multiple upstream origin && git checkout -B relocatable-locks origin/relocatable-locks ; }
 RUN script --return --command '../stack 1fec8b02bf || { echo "STACK FAILURE"; rm -f ../.stack-state; git reset --hard HEAD; git clean -dfx &>/dev/null; }' ../log
@@ -178,38 +198,6 @@ RUN sed -i '/use_caching=/s/1/0/' ../stack
 RUN script --return --append  --command '../stack 818afcc496 || echo "STACK FAILURE"' ../log
 RUN git gc --no-prune && sed -i -e '/worktree/d' ../.git/modules/ocaml/config
 
-FROM base AS collector-0
-COPY --chown=opam:opam --from=lock-ef758648dd /home/opam/build/.git/modules/ocaml builds/ef758648dd/.git
-COPY --from=lock-ef758648dd /home/opam/build/log logs/log-ef758648dd
-COPY --chown=opam:opam --from=lock-b026116679 /home/opam/build/.git/modules/ocaml builds/b026116679/.git
-COPY --from=lock-b026116679 /home/opam/build/log logs/log-b026116679
-COPY --chown=opam:opam --from=lock-511e988096 /home/opam/build/.git/modules/ocaml builds/511e988096/.git
-COPY --from=lock-511e988096 /home/opam/build/log logs/log-511e988096
-COPY --chown=opam:opam --from=lock-d2939babd4 /home/opam/build/.git/modules/ocaml builds/d2939babd4/.git
-COPY --from=lock-d2939babd4 /home/opam/build/log logs/log-d2939babd4
-COPY --chown=opam:opam --from=lock-be8c62d74b /home/opam/build/.git/modules/ocaml builds/be8c62d74b/.git
-COPY --from=lock-be8c62d74b /home/opam/build/log logs/log-be8c62d74b
-COPY --chown=opam:opam --from=lock-c007288549 /home/opam/build/.git/modules/ocaml builds/c007288549/.git
-COPY --from=lock-c007288549 /home/opam/build/log logs/log-c007288549
-COPY --chown=opam:opam --from=lock-061acc735f /home/opam/build/.git/modules/ocaml builds/061acc735f/.git
-COPY --from=lock-061acc735f /home/opam/build/log logs/log-061acc735f
-COPY --chown=opam:opam --from=lock-9cb60e14d4 /home/opam/build/.git/modules/ocaml builds/9cb60e14d4/.git
-COPY --from=lock-9cb60e14d4 /home/opam/build/log logs/log-9cb60e14d4
-COPY --chown=opam:opam --from=lock-54d34a7a07 /home/opam/build/.git/modules/ocaml builds/54d34a7a07/.git
-COPY --from=lock-54d34a7a07 /home/opam/build/log logs/log-54d34a7a07
-COPY --chown=opam:opam --from=lock-1fec8b02bf /home/opam/build/.git/modules/ocaml builds/1fec8b02bf/.git
-COPY --from=lock-1fec8b02bf /home/opam/build/log logs/log-1fec8b02bf
-COPY --chown=opam:opam --from=lock-68507ab524 /home/opam/build/.git/modules/ocaml builds/68507ab524/.git
-COPY --from=lock-68507ab524 /home/opam/build/log logs/log-68507ab524
-COPY --chown=opam:opam --from=lock-344465c433 /home/opam/build/.git/modules/ocaml builds/344465c433/.git
-COPY --from=lock-344465c433 /home/opam/build/log logs/log-344465c433
-COPY --chown=opam:opam --from=lock-9a16d2c854 /home/opam/build/.git/modules/ocaml builds/9a16d2c854/.git
-COPY --from=lock-9a16d2c854 /home/opam/build/log logs/log-9a16d2c854
-COPY --chown=opam:opam --from=lock-d5a626cfd4 /home/opam/build/.git/modules/ocaml builds/d5a626cfd4/.git
-COPY --from=lock-d5a626cfd4 /home/opam/build/log logs/log-d5a626cfd4
-COPY --chown=opam:opam --from=lock-818afcc496 /home/opam/build/.git/modules/ocaml builds/818afcc496/.git
-COPY --from=lock-818afcc496 /home/opam/build/log logs/log-818afcc496
-
 FROM builder AS lock-727272c2ee
 RUN test -n "$(git branch relocatable-locks --contains '727272c2ee' 2>/dev/null)" || { git -C .. pull origin main && git fetch --multiple upstream origin && git checkout -B relocatable-locks origin/relocatable-locks ; }
 RUN script --return --command '../stack 727272c2ee || { echo "STACK FAILURE"; rm -f ../.stack-state; git reset --hard HEAD; git clean -dfx &>/dev/null; }' ../log
@@ -230,6 +218,32 @@ RUN script --return --command '../stack 032059697e || { echo "STACK FAILURE"; rm
 RUN sed -i '/use_caching=/s/1/0/' ../stack
 RUN script --return --append  --command '../stack 032059697e || echo "STACK FAILURE"' ../log
 RUN git gc --no-prune && sed -i -e '/worktree/d' ../.git/modules/ocaml/config
+
+FROM base AS collector-01
+COPY --chown=opam:opam --from=lock-1fec8b02bf /home/opam/build/.git/modules/ocaml builds/1fec8b02bf/.git
+COPY --from=lock-1fec8b02bf /home/opam/build/log logs/log-1fec8b02bf
+COPY --chown=opam:opam --from=lock-68507ab524 /home/opam/build/.git/modules/ocaml builds/68507ab524/.git
+COPY --from=lock-68507ab524 /home/opam/build/log logs/log-68507ab524
+COPY --chown=opam:opam --from=lock-344465c433 /home/opam/build/.git/modules/ocaml builds/344465c433/.git
+COPY --from=lock-344465c433 /home/opam/build/log logs/log-344465c433
+COPY --chown=opam:opam --from=lock-9a16d2c854 /home/opam/build/.git/modules/ocaml builds/9a16d2c854/.git
+COPY --from=lock-9a16d2c854 /home/opam/build/log logs/log-9a16d2c854
+COPY --chown=opam:opam --from=lock-d5a626cfd4 /home/opam/build/.git/modules/ocaml builds/d5a626cfd4/.git
+COPY --from=lock-d5a626cfd4 /home/opam/build/log logs/log-d5a626cfd4
+COPY --chown=opam:opam --from=lock-818afcc496 /home/opam/build/.git/modules/ocaml builds/818afcc496/.git
+COPY --from=lock-818afcc496 /home/opam/build/log logs/log-818afcc496
+COPY --chown=opam:opam --from=lock-727272c2ee /home/opam/build/.git/modules/ocaml builds/727272c2ee/.git
+COPY --from=lock-727272c2ee /home/opam/build/log logs/log-727272c2ee
+COPY --chown=opam:opam --from=lock-8d9989f22a /home/opam/build/.git/modules/ocaml builds/8d9989f22a/.git
+COPY --from=lock-8d9989f22a /home/opam/build/log logs/log-8d9989f22a
+COPY --chown=opam:opam --from=lock-032059697e /home/opam/build/.git/modules/ocaml builds/032059697e/.git
+COPY --from=lock-032059697e /home/opam/build/log logs/log-032059697e
+
+FROM base AS collector-0
+COPY --chown=opam:opam --from=collector-00 /home/opam/builds builds
+COPY --chown=opam:opam --from=collector-00 /home/opam/logs logs
+COPY --chown=opam:opam --from=collector-01 /home/opam/builds builds
+COPY --chown=opam:opam --from=collector-01 /home/opam/logs logs
 
 FROM builder AS lock-b3cef089c9
 RUN test -n "$(git branch relocatable-locks --contains 'b3cef089c9' 2>/dev/null)" || { git -C .. pull origin main && git fetch --multiple upstream origin && git checkout -B relocatable-locks origin/relocatable-locks ; }
@@ -294,6 +308,26 @@ RUN sed -i '/use_caching=/s/1/0/' ../stack
 RUN script --return --append  --command '../stack c013d8555a || echo "STACK FAILURE"' ../log
 RUN git gc --no-prune && sed -i -e '/worktree/d' ../.git/modules/ocaml/config
 
+FROM base AS collector-10
+COPY --chown=opam:opam --from=lock-b3cef089c9 /home/opam/build/.git/modules/ocaml builds/b3cef089c9/.git
+COPY --from=lock-b3cef089c9 /home/opam/build/log logs/log-b3cef089c9
+COPY --chown=opam:opam --from=lock-0dc23f3111 /home/opam/build/.git/modules/ocaml builds/0dc23f3111/.git
+COPY --from=lock-0dc23f3111 /home/opam/build/log logs/log-0dc23f3111
+COPY --chown=opam:opam --from=lock-af068161ce /home/opam/build/.git/modules/ocaml builds/af068161ce/.git
+COPY --from=lock-af068161ce /home/opam/build/log logs/log-af068161ce
+COPY --chown=opam:opam --from=lock-240c86c340 /home/opam/build/.git/modules/ocaml builds/240c86c340/.git
+COPY --from=lock-240c86c340 /home/opam/build/log logs/log-240c86c340
+COPY --chown=opam:opam --from=lock-6370253918 /home/opam/build/.git/modules/ocaml builds/6370253918/.git
+COPY --from=lock-6370253918 /home/opam/build/log logs/log-6370253918
+COPY --chown=opam:opam --from=lock-c37031be15 /home/opam/build/.git/modules/ocaml builds/c37031be15/.git
+COPY --from=lock-c37031be15 /home/opam/build/log logs/log-c37031be15
+COPY --chown=opam:opam --from=lock-a0c452bb00 /home/opam/build/.git/modules/ocaml builds/a0c452bb00/.git
+COPY --from=lock-a0c452bb00 /home/opam/build/log logs/log-a0c452bb00
+COPY --chown=opam:opam --from=lock-a051f6e271 /home/opam/build/.git/modules/ocaml builds/a051f6e271/.git
+COPY --from=lock-a051f6e271 /home/opam/build/log logs/log-a051f6e271
+COPY --chown=opam:opam --from=lock-c013d8555a /home/opam/build/.git/modules/ocaml builds/c013d8555a/.git
+COPY --from=lock-c013d8555a /home/opam/build/log logs/log-c013d8555a
+
 FROM builder AS lock-590e211336
 RUN test -n "$(git branch relocatable-locks --contains '590e211336' 2>/dev/null)" || { git -C .. pull origin main && git fetch --multiple upstream origin && git checkout -B relocatable-locks origin/relocatable-locks ; }
 RUN script --return --command '../stack 590e211336 || { echo "STACK FAILURE"; rm -f ../.stack-state; git reset --hard HEAD; git clean -dfx &>/dev/null; }' ../log
@@ -315,37 +349,73 @@ RUN sed -i '/use_caching=/s/1/0/' ../stack
 RUN script --return --append  --command '../stack ce46c921dd || echo "STACK FAILURE"' ../log
 RUN git gc --no-prune && sed -i -e '/worktree/d' ../.git/modules/ocaml/config
 
-FROM base AS collector-1
-COPY --chown=opam:opam --from=lock-727272c2ee /home/opam/build/.git/modules/ocaml builds/727272c2ee/.git
-COPY --from=lock-727272c2ee /home/opam/build/log logs/log-727272c2ee
-COPY --chown=opam:opam --from=lock-8d9989f22a /home/opam/build/.git/modules/ocaml builds/8d9989f22a/.git
-COPY --from=lock-8d9989f22a /home/opam/build/log logs/log-8d9989f22a
-COPY --chown=opam:opam --from=lock-032059697e /home/opam/build/.git/modules/ocaml builds/032059697e/.git
-COPY --from=lock-032059697e /home/opam/build/log logs/log-032059697e
-COPY --chown=opam:opam --from=lock-b3cef089c9 /home/opam/build/.git/modules/ocaml builds/b3cef089c9/.git
-COPY --from=lock-b3cef089c9 /home/opam/build/log logs/log-b3cef089c9
-COPY --chown=opam:opam --from=lock-0dc23f3111 /home/opam/build/.git/modules/ocaml builds/0dc23f3111/.git
-COPY --from=lock-0dc23f3111 /home/opam/build/log logs/log-0dc23f3111
-COPY --chown=opam:opam --from=lock-af068161ce /home/opam/build/.git/modules/ocaml builds/af068161ce/.git
-COPY --from=lock-af068161ce /home/opam/build/log logs/log-af068161ce
-COPY --chown=opam:opam --from=lock-240c86c340 /home/opam/build/.git/modules/ocaml builds/240c86c340/.git
-COPY --from=lock-240c86c340 /home/opam/build/log logs/log-240c86c340
-COPY --chown=opam:opam --from=lock-6370253918 /home/opam/build/.git/modules/ocaml builds/6370253918/.git
-COPY --from=lock-6370253918 /home/opam/build/log logs/log-6370253918
-COPY --chown=opam:opam --from=lock-c37031be15 /home/opam/build/.git/modules/ocaml builds/c37031be15/.git
-COPY --from=lock-c37031be15 /home/opam/build/log logs/log-c37031be15
-COPY --chown=opam:opam --from=lock-a0c452bb00 /home/opam/build/.git/modules/ocaml builds/a0c452bb00/.git
-COPY --from=lock-a0c452bb00 /home/opam/build/log logs/log-a0c452bb00
-COPY --chown=opam:opam --from=lock-a051f6e271 /home/opam/build/.git/modules/ocaml builds/a051f6e271/.git
-COPY --from=lock-a051f6e271 /home/opam/build/log logs/log-a051f6e271
-COPY --chown=opam:opam --from=lock-c013d8555a /home/opam/build/.git/modules/ocaml builds/c013d8555a/.git
-COPY --from=lock-c013d8555a /home/opam/build/log logs/log-c013d8555a
+FROM builder AS lock-f895ddd9f4
+RUN test -n "$(git branch relocatable-locks --contains 'f895ddd9f4' 2>/dev/null)" || { git -C .. pull origin main && git fetch --multiple upstream origin && git checkout -B relocatable-locks origin/relocatable-locks ; }
+RUN script --return --command '../stack f895ddd9f4 || { echo "STACK FAILURE"; rm -f ../.stack-state; git reset --hard HEAD; git clean -dfx &>/dev/null; }' ../log
+RUN sed -i '/use_caching=/s/1/0/' ../stack
+RUN script --return --append  --command '../stack f895ddd9f4 || echo "STACK FAILURE"' ../log
+RUN git gc --no-prune && sed -i -e '/worktree/d' ../.git/modules/ocaml/config
+
+FROM builder AS lock-de9840da14
+RUN test -n "$(git branch relocatable-locks --contains 'de9840da14' 2>/dev/null)" || { git -C .. pull origin main && git fetch --multiple upstream origin && git checkout -B relocatable-locks origin/relocatable-locks ; }
+RUN script --return --command '../stack de9840da14 || { echo "STACK FAILURE"; rm -f ../.stack-state; git reset --hard HEAD; git clean -dfx &>/dev/null; }' ../log
+RUN sed -i '/use_caching=/s/1/0/' ../stack
+RUN script --return --append  --command '../stack de9840da14 || echo "STACK FAILURE"' ../log
+RUN git gc --no-prune && sed -i -e '/worktree/d' ../.git/modules/ocaml/config
+
+FROM builder AS lock-b5537a0d19
+RUN test -n "$(git branch relocatable-locks --contains 'b5537a0d19' 2>/dev/null)" || { git -C .. pull origin main && git fetch --multiple upstream origin && git checkout -B relocatable-locks origin/relocatable-locks ; }
+RUN script --return --command '../stack b5537a0d19 || { echo "STACK FAILURE"; rm -f ../.stack-state; git reset --hard HEAD; git clean -dfx &>/dev/null; }' ../log
+RUN sed -i '/use_caching=/s/1/0/' ../stack
+RUN script --return --append  --command '../stack b5537a0d19 || echo "STACK FAILURE"' ../log
+RUN git gc --no-prune && sed -i -e '/worktree/d' ../.git/modules/ocaml/config
+
+FROM builder AS lock-6f3934b263
+RUN test -n "$(git branch relocatable-locks --contains '6f3934b263' 2>/dev/null)" || { git -C .. pull origin main && git fetch --multiple upstream origin && git checkout -B relocatable-locks origin/relocatable-locks ; }
+RUN script --return --command '../stack 6f3934b263 || { echo "STACK FAILURE"; rm -f ../.stack-state; git reset --hard HEAD; git clean -dfx &>/dev/null; }' ../log
+RUN sed -i '/use_caching=/s/1/0/' ../stack
+RUN script --return --append  --command '../stack 6f3934b263 || echo "STACK FAILURE"' ../log
+RUN git gc --no-prune && sed -i -e '/worktree/d' ../.git/modules/ocaml/config
+
+FROM builder AS lock-2bc5173018
+RUN test -n "$(git branch relocatable-locks --contains '2bc5173018' 2>/dev/null)" || { git -C .. pull origin main && git fetch --multiple upstream origin && git checkout -B relocatable-locks origin/relocatable-locks ; }
+RUN script --return --command '../stack 2bc5173018 || { echo "STACK FAILURE"; rm -f ../.stack-state; git reset --hard HEAD; git clean -dfx &>/dev/null; }' ../log
+RUN sed -i '/use_caching=/s/1/0/' ../stack
+RUN script --return --append  --command '../stack 2bc5173018 || echo "STACK FAILURE"' ../log
+RUN git gc --no-prune && sed -i -e '/worktree/d' ../.git/modules/ocaml/config
+
+FROM builder AS lock-7a4aee5140
+RUN test -n "$(git branch relocatable-locks --contains '7a4aee5140' 2>/dev/null)" || { git -C .. pull origin main && git fetch --multiple upstream origin && git checkout -B relocatable-locks origin/relocatable-locks ; }
+RUN script --return --command '../stack 7a4aee5140 || { echo "STACK FAILURE"; rm -f ../.stack-state; git reset --hard HEAD; git clean -dfx &>/dev/null; }' ../log
+RUN sed -i '/use_caching=/s/1/0/' ../stack
+RUN script --return --append  --command '../stack 7a4aee5140 || echo "STACK FAILURE"' ../log
+RUN git gc --no-prune && sed -i -e '/worktree/d' ../.git/modules/ocaml/config
+
+FROM base AS collector-11
 COPY --chown=opam:opam --from=lock-590e211336 /home/opam/build/.git/modules/ocaml builds/590e211336/.git
 COPY --from=lock-590e211336 /home/opam/build/log logs/log-590e211336
 COPY --chown=opam:opam --from=lock-b5aa73d89c /home/opam/build/.git/modules/ocaml builds/b5aa73d89c/.git
 COPY --from=lock-b5aa73d89c /home/opam/build/log logs/log-b5aa73d89c
 COPY --chown=opam:opam --from=lock-ce46c921dd /home/opam/build/.git/modules/ocaml builds/ce46c921dd/.git
 COPY --from=lock-ce46c921dd /home/opam/build/log logs/log-ce46c921dd
+COPY --chown=opam:opam --from=lock-f895ddd9f4 /home/opam/build/.git/modules/ocaml builds/f895ddd9f4/.git
+COPY --from=lock-f895ddd9f4 /home/opam/build/log logs/log-f895ddd9f4
+COPY --chown=opam:opam --from=lock-de9840da14 /home/opam/build/.git/modules/ocaml builds/de9840da14/.git
+COPY --from=lock-de9840da14 /home/opam/build/log logs/log-de9840da14
+COPY --chown=opam:opam --from=lock-b5537a0d19 /home/opam/build/.git/modules/ocaml builds/b5537a0d19/.git
+COPY --from=lock-b5537a0d19 /home/opam/build/log logs/log-b5537a0d19
+COPY --chown=opam:opam --from=lock-6f3934b263 /home/opam/build/.git/modules/ocaml builds/6f3934b263/.git
+COPY --from=lock-6f3934b263 /home/opam/build/log logs/log-6f3934b263
+COPY --chown=opam:opam --from=lock-2bc5173018 /home/opam/build/.git/modules/ocaml builds/2bc5173018/.git
+COPY --from=lock-2bc5173018 /home/opam/build/log logs/log-2bc5173018
+COPY --chown=opam:opam --from=lock-7a4aee5140 /home/opam/build/.git/modules/ocaml builds/7a4aee5140/.git
+COPY --from=lock-7a4aee5140 /home/opam/build/log logs/log-7a4aee5140
+
+FROM base AS collector-1
+COPY --chown=opam:opam --from=collector-10 /home/opam/builds builds
+COPY --chown=opam:opam --from=collector-10 /home/opam/logs logs
+COPY --chown=opam:opam --from=collector-11 /home/opam/builds builds
+COPY --chown=opam:opam --from=collector-11 /home/opam/logs logs
 
 FROM base AS collector
 COPY --chown=opam:opam --from=collector-0 /home/opam/builds builds
@@ -355,7 +425,7 @@ COPY --chown=opam:opam --from=collector-1 /home/opam/logs logs
 
 FROM collector AS reflog
 RUN <<End-of-Script
-  for lock in ef758648dd b026116679 511e988096 d2939babd4 be8c62d74b c007288549 061acc735f 9cb60e14d4 54d34a7a07 1fec8b02bf 68507ab524 344465c433 9a16d2c854 d5a626cfd4 818afcc496 727272c2ee 8d9989f22a 032059697e b3cef089c9 0dc23f3111 af068161ce 240c86c340 6370253918 c37031be15 a0c452bb00 a051f6e271 c013d8555a 590e211336 b5aa73d89c ce46c921dd; do
+  for lock in ef758648dd b026116679 511e988096 d2939babd4 be8c62d74b c007288549 061acc735f 9cb60e14d4 54d34a7a07 1fec8b02bf 68507ab524 344465c433 9a16d2c854 d5a626cfd4 818afcc496 727272c2ee 8d9989f22a 032059697e b3cef089c9 0dc23f3111 af068161ce 240c86c340 6370253918 c37031be15 a0c452bb00 a051f6e271 c013d8555a 590e211336 b5aa73d89c ce46c921dd f895ddd9f4 de9840da14 b5537a0d19 6f3934b263 2bc5173018 7a4aee5140; do
     cat builds/$lock/.git/logs/HEAD
   done > HEAD
 End-of-Script
@@ -396,12 +466,18 @@ COPY <<EOF relocatable/.git/modules/ocaml/objects/info/alternates
 /home/opam/builds/590e211336/.git/objects
 /home/opam/builds/b5aa73d89c/.git/objects
 /home/opam/builds/ce46c921dd/.git/objects
+/home/opam/builds/f895ddd9f4/.git/objects
+/home/opam/builds/de9840da14/.git/objects
+/home/opam/builds/b5537a0d19/.git/objects
+/home/opam/builds/6f3934b263/.git/objects
+/home/opam/builds/2bc5173018/.git/objects
+/home/opam/builds/7a4aee5140/.git/objects
 EOF
 WORKDIR /home/opam/relocatable/ocaml
 RUN <<End-of-Script
   cat >> rebuild <<"EOF"
   head="$(git -C ../../builds/ef758648dd rev-parse --short relocatable-cache)"
-  for lock in b026116679 511e988096 d2939babd4 be8c62d74b c007288549 061acc735f 9cb60e14d4 54d34a7a07 1fec8b02bf 68507ab524 344465c433 9a16d2c854 d5a626cfd4 818afcc496 727272c2ee 8d9989f22a 032059697e b3cef089c9 0dc23f3111 af068161ce 240c86c340 6370253918 c37031be15 a0c452bb00 a051f6e271 c013d8555a 590e211336 b5aa73d89c ce46c921dd; do
+  for lock in b026116679 511e988096 d2939babd4 be8c62d74b c007288549 061acc735f 9cb60e14d4 54d34a7a07 1fec8b02bf 68507ab524 344465c433 9a16d2c854 d5a626cfd4 818afcc496 727272c2ee 8d9989f22a 032059697e b3cef089c9 0dc23f3111 af068161ce 240c86c340 6370253918 c37031be15 a0c452bb00 a051f6e271 c013d8555a 590e211336 b5aa73d89c ce46c921dd f895ddd9f4 de9840da14 b5537a0d19 6f3934b263 2bc5173018 7a4aee5140; do
     while IFS= read -r line; do
       args=($line)
       if [[ ${#args[@]} -gt 2 ]]; then
@@ -417,94 +493,112 @@ EOF
 End-of-Script
 
 FROM unified AS cache-test-ef758648dd
-RUN script --return --command "../stack ef758648dd" ../log
+RUN { git merge-base --is-ancestor ef758648dd relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack ef758648dd" ../log
 
 FROM unified AS cache-test-b026116679
-RUN script --return --command "../stack b026116679" ../log
+RUN { git merge-base --is-ancestor b026116679 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack b026116679" ../log
 
 FROM unified AS cache-test-511e988096
-RUN script --return --command "../stack 511e988096" ../log
+RUN { git merge-base --is-ancestor 511e988096 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack 511e988096" ../log
 
 FROM unified AS cache-test-d2939babd4
-RUN script --return --command "../stack d2939babd4" ../log
+RUN { git merge-base --is-ancestor d2939babd4 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack d2939babd4" ../log
 
 FROM unified AS cache-test-be8c62d74b
-RUN script --return --command "../stack be8c62d74b" ../log
+RUN { git merge-base --is-ancestor be8c62d74b relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack be8c62d74b" ../log
 
 FROM unified AS cache-test-c007288549
-RUN script --return --command "../stack c007288549" ../log
+RUN { git merge-base --is-ancestor c007288549 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack c007288549" ../log
 
 FROM unified AS cache-test-061acc735f
-RUN script --return --command "../stack 061acc735f" ../log
+RUN { git merge-base --is-ancestor 061acc735f relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack 061acc735f" ../log
 
 FROM unified AS cache-test-9cb60e14d4
-RUN script --return --command "../stack 9cb60e14d4" ../log
+RUN { git merge-base --is-ancestor 9cb60e14d4 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack 9cb60e14d4" ../log
 
 FROM unified AS cache-test-54d34a7a07
-RUN script --return --command "../stack 54d34a7a07" ../log
+RUN { git merge-base --is-ancestor 54d34a7a07 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack 54d34a7a07" ../log
 
 FROM unified AS cache-test-1fec8b02bf
-RUN script --return --command "../stack 1fec8b02bf" ../log
+RUN { git merge-base --is-ancestor 1fec8b02bf relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack 1fec8b02bf" ../log
 
 FROM unified AS cache-test-68507ab524
-RUN script --return --command "../stack 68507ab524" ../log
+RUN { git merge-base --is-ancestor 68507ab524 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack 68507ab524" ../log
 
 FROM unified AS cache-test-344465c433
-RUN script --return --command "../stack 344465c433" ../log
+RUN { git merge-base --is-ancestor 344465c433 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack 344465c433" ../log
 
 FROM unified AS cache-test-9a16d2c854
-RUN script --return --command "../stack 9a16d2c854" ../log
+RUN { git merge-base --is-ancestor 9a16d2c854 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack 9a16d2c854" ../log
 
 FROM unified AS cache-test-d5a626cfd4
-RUN script --return --command "../stack d5a626cfd4" ../log
+RUN { git merge-base --is-ancestor d5a626cfd4 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack d5a626cfd4" ../log
 
 FROM unified AS cache-test-818afcc496
-RUN script --return --command "../stack 818afcc496" ../log
+RUN { git merge-base --is-ancestor 818afcc496 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack 818afcc496" ../log
 
 FROM unified AS cache-test-727272c2ee
-RUN script --return --command "../stack 727272c2ee" ../log
+RUN { git merge-base --is-ancestor 727272c2ee relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack 727272c2ee" ../log
 
 FROM unified AS cache-test-8d9989f22a
-RUN script --return --command "../stack 8d9989f22a" ../log
+RUN { git merge-base --is-ancestor 8d9989f22a relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack 8d9989f22a" ../log
 
 FROM unified AS cache-test-032059697e
-RUN script --return --command "../stack 032059697e" ../log
+RUN { git merge-base --is-ancestor 032059697e relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack 032059697e" ../log
 
 FROM unified AS cache-test-b3cef089c9
-RUN script --return --command "../stack b3cef089c9" ../log
+RUN { git merge-base --is-ancestor b3cef089c9 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack b3cef089c9" ../log
 
 FROM unified AS cache-test-0dc23f3111
-RUN script --return --command "../stack 0dc23f3111" ../log
+RUN { git merge-base --is-ancestor 0dc23f3111 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack 0dc23f3111" ../log
 
 FROM unified AS cache-test-af068161ce
-RUN script --return --command "../stack af068161ce" ../log
+RUN { git merge-base --is-ancestor af068161ce relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack af068161ce" ../log
 
 FROM unified AS cache-test-240c86c340
-RUN script --return --command "../stack 240c86c340" ../log
+RUN { git merge-base --is-ancestor 240c86c340 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack 240c86c340" ../log
 
 FROM unified AS cache-test-6370253918
-RUN script --return --command "../stack 6370253918" ../log
+RUN { git merge-base --is-ancestor 6370253918 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack 6370253918" ../log
 
 FROM unified AS cache-test-c37031be15
-RUN script --return --command "../stack c37031be15" ../log
+RUN { git merge-base --is-ancestor c37031be15 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack c37031be15" ../log
 
 FROM unified AS cache-test-a0c452bb00
-RUN script --return --command "../stack a0c452bb00" ../log
+RUN { git merge-base --is-ancestor a0c452bb00 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack a0c452bb00" ../log
 
 FROM unified AS cache-test-a051f6e271
-RUN script --return --command "../stack a051f6e271" ../log
+RUN { git merge-base --is-ancestor a051f6e271 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack a051f6e271" ../log
 
 FROM unified AS cache-test-c013d8555a
-RUN script --return --command "../stack c013d8555a" ../log
+RUN { git merge-base --is-ancestor c013d8555a relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack c013d8555a" ../log
 
 FROM unified AS cache-test-590e211336
-RUN script --return --command "../stack 590e211336" ../log
+RUN { git merge-base --is-ancestor 590e211336 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack 590e211336" ../log
 
 FROM unified AS cache-test-b5aa73d89c
-RUN script --return --command "../stack b5aa73d89c" ../log
+RUN { git merge-base --is-ancestor b5aa73d89c relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack b5aa73d89c" ../log
 
 FROM unified AS cache-test-ce46c921dd
-RUN script --return --command "../stack ce46c921dd" ../log
+RUN { git merge-base --is-ancestor ce46c921dd relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack ce46c921dd" ../log
+
+FROM unified AS cache-test-f895ddd9f4
+RUN { git merge-base --is-ancestor f895ddd9f4 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack f895ddd9f4" ../log
+
+FROM unified AS cache-test-de9840da14
+RUN { git merge-base --is-ancestor de9840da14 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack de9840da14" ../log
+
+FROM unified AS cache-test-b5537a0d19
+RUN { git merge-base --is-ancestor b5537a0d19 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack b5537a0d19" ../log
+
+FROM unified AS cache-test-6f3934b263
+RUN { git merge-base --is-ancestor 6f3934b263 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack 6f3934b263" ../log
+
+FROM unified AS cache-test-2bc5173018
+RUN { git merge-base --is-ancestor 2bc5173018 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack 2bc5173018" ../log
+
+FROM unified AS cache-test-7a4aee5140
+RUN { git merge-base --is-ancestor 7a4aee5140 relocatable-locks || { git fetch origin && git checkout -B relocatable-locks origin/relocatable-locks;  } } && script --return --command "../stack 7a4aee5140" ../log
 
 FROM unified AS collected-logs
 COPY --from=cache-test-ef758648dd /home/opam/relocatable/log combined-ef758648dd
@@ -537,10 +631,16 @@ COPY --from=cache-test-c013d8555a /home/opam/relocatable/log combined-c013d8555a
 COPY --from=cache-test-590e211336 /home/opam/relocatable/log combined-590e211336
 COPY --from=cache-test-b5aa73d89c /home/opam/relocatable/log combined-b5aa73d89c
 COPY --from=cache-test-ce46c921dd /home/opam/relocatable/log combined-ce46c921dd
-RUN cat combined-ef758648dd combined-b026116679 combined-511e988096 combined-d2939babd4 combined-be8c62d74b combined-c007288549 combined-061acc735f combined-9cb60e14d4 combined-54d34a7a07 combined-1fec8b02bf combined-68507ab524 combined-344465c433 combined-9a16d2c854 combined-d5a626cfd4 combined-818afcc496 combined-727272c2ee combined-8d9989f22a combined-032059697e combined-b3cef089c9 combined-0dc23f3111 combined-af068161ce combined-240c86c340 combined-6370253918 combined-c37031be15 combined-a0c452bb00 combined-a051f6e271 combined-c013d8555a combined-590e211336 combined-b5aa73d89c combined-ce46c921dd > combined
+COPY --from=cache-test-f895ddd9f4 /home/opam/relocatable/log combined-f895ddd9f4
+COPY --from=cache-test-de9840da14 /home/opam/relocatable/log combined-de9840da14
+COPY --from=cache-test-b5537a0d19 /home/opam/relocatable/log combined-b5537a0d19
+COPY --from=cache-test-6f3934b263 /home/opam/relocatable/log combined-6f3934b263
+COPY --from=cache-test-2bc5173018 /home/opam/relocatable/log combined-2bc5173018
+COPY --from=cache-test-7a4aee5140 /home/opam/relocatable/log combined-7a4aee5140
+RUN cat combined-ef758648dd combined-b026116679 combined-511e988096 combined-d2939babd4 combined-be8c62d74b combined-c007288549 combined-061acc735f combined-9cb60e14d4 combined-54d34a7a07 combined-1fec8b02bf combined-68507ab524 combined-344465c433 combined-9a16d2c854 combined-d5a626cfd4 combined-818afcc496 combined-727272c2ee combined-8d9989f22a combined-032059697e combined-b3cef089c9 combined-0dc23f3111 combined-af068161ce combined-240c86c340 combined-6370253918 combined-c37031be15 combined-a0c452bb00 combined-a051f6e271 combined-c013d8555a combined-590e211336 combined-b5aa73d89c combined-ce46c921dd combined-f895ddd9f4 combined-de9840da14 combined-b5537a0d19 combined-6f3934b263 combined-2bc5173018 combined-7a4aee5140 > combined
 
 FROM unified
 COPY --from=collected-logs /home/opam/relocatable/ocaml/combined ../../logs/combined
 COPY <<EOF ../../all-locks
-ef758648dd b026116679 511e988096 d2939babd4 be8c62d74b c007288549 061acc735f 9cb60e14d4 54d34a7a07 1fec8b02bf 68507ab524 344465c433 9a16d2c854 d5a626cfd4 818afcc496 727272c2ee 8d9989f22a 032059697e b3cef089c9 0dc23f3111 af068161ce 240c86c340 6370253918 c37031be15 a0c452bb00 a051f6e271 c013d8555a 590e211336 b5aa73d89c ce46c921dd
+ef758648dd b026116679 511e988096 d2939babd4 be8c62d74b c007288549 061acc735f 9cb60e14d4 54d34a7a07 1fec8b02bf 68507ab524 344465c433 9a16d2c854 d5a626cfd4 818afcc496 727272c2ee 8d9989f22a 032059697e b3cef089c9 0dc23f3111 af068161ce 240c86c340 6370253918 c37031be15 a0c452bb00 a051f6e271 c013d8555a 590e211336 b5aa73d89c ce46c921dd f895ddd9f4 de9840da14 b5537a0d19 6f3934b263 2bc5173018 7a4aee5140
 EOF
