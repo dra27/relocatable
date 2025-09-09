@@ -10,23 +10,25 @@ RUN git clone https://github.com/dra27/ocaml.git
 WORKDIR ocaml
 
 FROM base AS test-4.08-vanilla
-RUN git checkout 800a2df74dcfa0fdcc0c9aabc59ac0e3bee7cf6b || git fetch origin && git checkout 800a2df74dcfa0fdcc0c9aabc59ac0e3bee7cf6b
+RUN git checkout fe541f3f8f0871a96fecd7dcbe2c12b1acd0b0e2 || git fetch origin && git checkout fe541f3f8f0871a96fecd7dcbe2c12b1acd0b0e2
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml
 RUN make -j world.opt
 RUN make -j ocamlnat
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout f2c4b5a7228f03b039babcbb0589194897a0789a || git fetch origin && git checkout f2c4b5a7228f03b039babcbb0589194897a0789a
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout 06f8e57ab1af9dac61a242413afc7a58cc109111 || git fetch origin && git checkout 06f8e57ab1af9dac61a242413afc7a58cc109111
+RUN git checkout bd909001c147a1385056f7829093e22dbe020480 || git fetch origin && git checkout bd909001c147a1385056f7829093e22dbe020480
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout 03989f39c7a4ceaa1a88bb959058bef0ad37eb92 || git fetch origin && git checkout 03989f39c7a4ceaa1a88bb959058bef0ad37eb92
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout 3b6adaae1c3a7d87455244c66ce2f9e55e6197b2 || git fetch origin && git checkout 3b6adaae1c3a7d87455244c66ce2f9e55e6197b2
+RUN git checkout cbb497ca9ff6145f627fe541582cc95b2c60d814 || git fetch origin && git checkout cbb497ca9ff6145f627fe541582cc95b2c60d814
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout 61306f45d7e636f58dc1549b1bee349ed3a9531e || git fetch origin && git checkout 61306f45d7e636f58dc1549b1bee349ed3a9531e
+RUN git checkout bc6dce3e07e5839360f58a8d6eba9dc764a96215 || git fetch origin && git checkout bc6dce3e07e5839360f58a8d6eba9dc764a96215
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -34,23 +36,25 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-4.08-relocatable
-RUN git checkout 800a2df74dcfa0fdcc0c9aabc59ac0e3bee7cf6b || git fetch origin && git checkout 800a2df74dcfa0fdcc0c9aabc59ac0e3bee7cf6b
+RUN git checkout fe541f3f8f0871a96fecd7dcbe2c12b1acd0b0e2 || git fetch origin && git checkout fe541f3f8f0871a96fecd7dcbe2c12b1acd0b0e2
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml --with-relative-libdir=../lib/ocaml --enable-runtime-search=always --enable-runtime-search-target
 RUN make -j world.opt
 RUN make -j ocamlnat
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout f2c4b5a7228f03b039babcbb0589194897a0789a || git fetch origin && git checkout f2c4b5a7228f03b039babcbb0589194897a0789a
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout 06f8e57ab1af9dac61a242413afc7a58cc109111 || git fetch origin && git checkout 06f8e57ab1af9dac61a242413afc7a58cc109111
+RUN git checkout bd909001c147a1385056f7829093e22dbe020480 || git fetch origin && git checkout bd909001c147a1385056f7829093e22dbe020480
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout 03989f39c7a4ceaa1a88bb959058bef0ad37eb92 || git fetch origin && git checkout 03989f39c7a4ceaa1a88bb959058bef0ad37eb92
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout 3b6adaae1c3a7d87455244c66ce2f9e55e6197b2 || git fetch origin && git checkout 3b6adaae1c3a7d87455244c66ce2f9e55e6197b2
+RUN git checkout cbb497ca9ff6145f627fe541582cc95b2c60d814 || git fetch origin && git checkout cbb497ca9ff6145f627fe541582cc95b2c60d814
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout 61306f45d7e636f58dc1549b1bee349ed3a9531e || git fetch origin && git checkout 61306f45d7e636f58dc1549b1bee349ed3a9531e
+RUN git checkout bc6dce3e07e5839360f58a8d6eba9dc764a96215 || git fetch origin && git checkout bc6dce3e07e5839360f58a8d6eba9dc764a96215
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -58,23 +62,25 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-4.09-vanilla
-RUN git checkout b43f2055f4e9f4154de77719345b6f62f2dc769b || git fetch origin && git checkout b43f2055f4e9f4154de77719345b6f62f2dc769b
+RUN git checkout c02c78ef8e5af427131194399a4ad7499ad5e6e2 || git fetch origin && git checkout c02c78ef8e5af427131194399a4ad7499ad5e6e2
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml
 RUN make -j world.opt
 RUN make -j ocamlnat
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout 2b72c577922ebd898beb8a3d17374aac479209dd || git fetch origin && git checkout 2b72c577922ebd898beb8a3d17374aac479209dd
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout 2160b27cfa685540a90a903537cefa38a00fd2f0 || git fetch origin && git checkout 2160b27cfa685540a90a903537cefa38a00fd2f0
+RUN git checkout 5e57d9f31ab20f71aaf82cb1f92b1d414bcc096d || git fetch origin && git checkout 5e57d9f31ab20f71aaf82cb1f92b1d414bcc096d
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout 7e5bf074f3ea47d6f07aba082593d553c6431827 || git fetch origin && git checkout 7e5bf074f3ea47d6f07aba082593d553c6431827
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout 27b953e50b026718eab6f4ee8aaeee6446844211 || git fetch origin && git checkout 27b953e50b026718eab6f4ee8aaeee6446844211
+RUN git checkout 9f443b960319f9f92dde896b7e06ce1ebbfc9f0e || git fetch origin && git checkout 9f443b960319f9f92dde896b7e06ce1ebbfc9f0e
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout afd606751ac77b8f3b953cb22cb5e60dd023ce64 || git fetch origin && git checkout afd606751ac77b8f3b953cb22cb5e60dd023ce64
+RUN git checkout 98f8a5dc0d200ebcdbda385e38c77bae7384d0b0 || git fetch origin && git checkout 98f8a5dc0d200ebcdbda385e38c77bae7384d0b0
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -82,23 +88,25 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-4.09-relocatable
-RUN git checkout b43f2055f4e9f4154de77719345b6f62f2dc769b || git fetch origin && git checkout b43f2055f4e9f4154de77719345b6f62f2dc769b
+RUN git checkout c02c78ef8e5af427131194399a4ad7499ad5e6e2 || git fetch origin && git checkout c02c78ef8e5af427131194399a4ad7499ad5e6e2
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml --with-relative-libdir=../lib/ocaml --enable-runtime-search=always --enable-runtime-search-target
 RUN make -j world.opt
 RUN make -j ocamlnat
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout 2b72c577922ebd898beb8a3d17374aac479209dd || git fetch origin && git checkout 2b72c577922ebd898beb8a3d17374aac479209dd
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout 2160b27cfa685540a90a903537cefa38a00fd2f0 || git fetch origin && git checkout 2160b27cfa685540a90a903537cefa38a00fd2f0
+RUN git checkout 5e57d9f31ab20f71aaf82cb1f92b1d414bcc096d || git fetch origin && git checkout 5e57d9f31ab20f71aaf82cb1f92b1d414bcc096d
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout 7e5bf074f3ea47d6f07aba082593d553c6431827 || git fetch origin && git checkout 7e5bf074f3ea47d6f07aba082593d553c6431827
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout 27b953e50b026718eab6f4ee8aaeee6446844211 || git fetch origin && git checkout 27b953e50b026718eab6f4ee8aaeee6446844211
+RUN git checkout 9f443b960319f9f92dde896b7e06ce1ebbfc9f0e || git fetch origin && git checkout 9f443b960319f9f92dde896b7e06ce1ebbfc9f0e
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout afd606751ac77b8f3b953cb22cb5e60dd023ce64 || git fetch origin && git checkout afd606751ac77b8f3b953cb22cb5e60dd023ce64
+RUN git checkout 98f8a5dc0d200ebcdbda385e38c77bae7384d0b0 || git fetch origin && git checkout 98f8a5dc0d200ebcdbda385e38c77bae7384d0b0
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -106,23 +114,25 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-4.10-vanilla
-RUN git checkout d4a50dc832ab35cd66b51995354f2d4b53ee4fa5 || git fetch origin && git checkout d4a50dc832ab35cd66b51995354f2d4b53ee4fa5
+RUN git checkout 8e46a39165c5c98ac7fcd31fa6dbc7453720955b || git fetch origin && git checkout 8e46a39165c5c98ac7fcd31fa6dbc7453720955b
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml
 RUN make -j
 RUN make -j ocamlnat
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout 390928a69469c56b9e3aa89aeaa4e380b92bccae || git fetch origin && git checkout 390928a69469c56b9e3aa89aeaa4e380b92bccae
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout 878d0ea77b138afb33fac26da8eff4e808da11d5 || git fetch origin && git checkout 878d0ea77b138afb33fac26da8eff4e808da11d5
+RUN git checkout b339d472c27b8d6076c8c659471a7b2e2f3b66cd || git fetch origin && git checkout b339d472c27b8d6076c8c659471a7b2e2f3b66cd
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout ff12a7cb7b08b592bd2eaa8eac55b9a5278fd333 || git fetch origin && git checkout ff12a7cb7b08b592bd2eaa8eac55b9a5278fd333
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout df8610b19576420f73cc7b5dc2d2fb959b1ea530 || git fetch origin && git checkout df8610b19576420f73cc7b5dc2d2fb959b1ea530
+RUN git checkout 70356780eb0205b00bc76925f23f588b7bf24b7b || git fetch origin && git checkout 70356780eb0205b00bc76925f23f588b7bf24b7b
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout 071870a13c2c40536b3db6072826e44cfbe02943 || git fetch origin && git checkout 071870a13c2c40536b3db6072826e44cfbe02943
+RUN git checkout a6551a7bd00222089622d1912daa04bd3a6940af || git fetch origin && git checkout a6551a7bd00222089622d1912daa04bd3a6940af
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -130,23 +140,25 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-4.10-relocatable
-RUN git checkout d4a50dc832ab35cd66b51995354f2d4b53ee4fa5 || git fetch origin && git checkout d4a50dc832ab35cd66b51995354f2d4b53ee4fa5
+RUN git checkout 8e46a39165c5c98ac7fcd31fa6dbc7453720955b || git fetch origin && git checkout 8e46a39165c5c98ac7fcd31fa6dbc7453720955b
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml --with-relative-libdir=../lib/ocaml --enable-runtime-search=always --enable-runtime-search-target
 RUN make -j
 RUN make -j ocamlnat
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout 390928a69469c56b9e3aa89aeaa4e380b92bccae || git fetch origin && git checkout 390928a69469c56b9e3aa89aeaa4e380b92bccae
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout 878d0ea77b138afb33fac26da8eff4e808da11d5 || git fetch origin && git checkout 878d0ea77b138afb33fac26da8eff4e808da11d5
+RUN git checkout b339d472c27b8d6076c8c659471a7b2e2f3b66cd || git fetch origin && git checkout b339d472c27b8d6076c8c659471a7b2e2f3b66cd
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout ff12a7cb7b08b592bd2eaa8eac55b9a5278fd333 || git fetch origin && git checkout ff12a7cb7b08b592bd2eaa8eac55b9a5278fd333
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout df8610b19576420f73cc7b5dc2d2fb959b1ea530 || git fetch origin && git checkout df8610b19576420f73cc7b5dc2d2fb959b1ea530
+RUN git checkout 70356780eb0205b00bc76925f23f588b7bf24b7b || git fetch origin && git checkout 70356780eb0205b00bc76925f23f588b7bf24b7b
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout 071870a13c2c40536b3db6072826e44cfbe02943 || git fetch origin && git checkout 071870a13c2c40536b3db6072826e44cfbe02943
+RUN git checkout a6551a7bd00222089622d1912daa04bd3a6940af || git fetch origin && git checkout a6551a7bd00222089622d1912daa04bd3a6940af
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -154,23 +166,25 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-4.11-vanilla
-RUN git checkout 0e70215446b36ec3de534098efc114bca1afe0d3 || git fetch origin && git checkout 0e70215446b36ec3de534098efc114bca1afe0d3
+RUN git checkout 0ed180590af537af90b3f419b9df1b88521b5ec9 || git fetch origin && git checkout 0ed180590af537af90b3f419b9df1b88521b5ec9
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml
 RUN make -j
 RUN make -j ocamlnat
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout 195f4eeefc7c4756562f9c1c2b66c834aaaba224 || git fetch origin && git checkout 195f4eeefc7c4756562f9c1c2b66c834aaaba224
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout f614657134e7c69a19edd99cbb346419c4611885 || git fetch origin && git checkout f614657134e7c69a19edd99cbb346419c4611885
+RUN git checkout 10cfbf857aefc70e505b37e6b36c13cc32c9f478 || git fetch origin && git checkout 10cfbf857aefc70e505b37e6b36c13cc32c9f478
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout 18b721cd503f7d25c6d99c732a50c338babe4a9e || git fetch origin && git checkout 18b721cd503f7d25c6d99c732a50c338babe4a9e
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout 3f10e54c620af5eca3f60e808529475d22e5db43 || git fetch origin && git checkout 3f10e54c620af5eca3f60e808529475d22e5db43
+RUN git checkout 42887e3a294569fccd5e2288f0da70537870caa6 || git fetch origin && git checkout 42887e3a294569fccd5e2288f0da70537870caa6
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout 870a046835be490288f3ae436cdf3bfa0fd71a51 || git fetch origin && git checkout 870a046835be490288f3ae436cdf3bfa0fd71a51
+RUN git checkout 19bae3a75e230a2db7b80aa633f894e224f17422 || git fetch origin && git checkout 19bae3a75e230a2db7b80aa633f894e224f17422
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -178,23 +192,25 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-4.11-relocatable
-RUN git checkout 0e70215446b36ec3de534098efc114bca1afe0d3 || git fetch origin && git checkout 0e70215446b36ec3de534098efc114bca1afe0d3
+RUN git checkout 0ed180590af537af90b3f419b9df1b88521b5ec9 || git fetch origin && git checkout 0ed180590af537af90b3f419b9df1b88521b5ec9
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml --with-relative-libdir=../lib/ocaml --enable-runtime-search=always --enable-runtime-search-target
 RUN make -j
 RUN make -j ocamlnat
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout 195f4eeefc7c4756562f9c1c2b66c834aaaba224 || git fetch origin && git checkout 195f4eeefc7c4756562f9c1c2b66c834aaaba224
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout f614657134e7c69a19edd99cbb346419c4611885 || git fetch origin && git checkout f614657134e7c69a19edd99cbb346419c4611885
+RUN git checkout 10cfbf857aefc70e505b37e6b36c13cc32c9f478 || git fetch origin && git checkout 10cfbf857aefc70e505b37e6b36c13cc32c9f478
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout 18b721cd503f7d25c6d99c732a50c338babe4a9e || git fetch origin && git checkout 18b721cd503f7d25c6d99c732a50c338babe4a9e
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout 3f10e54c620af5eca3f60e808529475d22e5db43 || git fetch origin && git checkout 3f10e54c620af5eca3f60e808529475d22e5db43
+RUN git checkout 42887e3a294569fccd5e2288f0da70537870caa6 || git fetch origin && git checkout 42887e3a294569fccd5e2288f0da70537870caa6
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout 870a046835be490288f3ae436cdf3bfa0fd71a51 || git fetch origin && git checkout 870a046835be490288f3ae436cdf3bfa0fd71a51
+RUN git checkout 19bae3a75e230a2db7b80aa633f894e224f17422 || git fetch origin && git checkout 19bae3a75e230a2db7b80aa633f894e224f17422
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -202,23 +218,25 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-4.12-vanilla
-RUN git checkout 6d8327037c6e05f140bd3766163e14cc02e7cc6d || git fetch origin && git checkout 6d8327037c6e05f140bd3766163e14cc02e7cc6d
+RUN git checkout 4db18e21d8c3ede8c4311025ebc541dc70f8daad || git fetch origin && git checkout 4db18e21d8c3ede8c4311025ebc541dc70f8daad
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml
 RUN make -j
 RUN make -j ocamlnat
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout 9a1569205a644085d247cf05fe51cbe79e309c0a || git fetch origin && git checkout 9a1569205a644085d247cf05fe51cbe79e309c0a
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout 6190d679363018e09d76e1ae6811836cc5eeb86b || git fetch origin && git checkout 6190d679363018e09d76e1ae6811836cc5eeb86b
+RUN git checkout 52b967cbf665f6b8c488e31ab6b64fd05fc8fc79 || git fetch origin && git checkout 52b967cbf665f6b8c488e31ab6b64fd05fc8fc79
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout 57afb7345a4ab23fefb66d2774eff32323c7cc5e || git fetch origin && git checkout 57afb7345a4ab23fefb66d2774eff32323c7cc5e
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout b35b2f848b1ab77724128667dd6f5936cdf456fb || git fetch origin && git checkout b35b2f848b1ab77724128667dd6f5936cdf456fb
+RUN git checkout 13021285a8f2ef98e5c1a0cc435298d2914f0e99 || git fetch origin && git checkout 13021285a8f2ef98e5c1a0cc435298d2914f0e99
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout b9057ac2b131fb604d2bd2076a59257868e04ebc || git fetch origin && git checkout b9057ac2b131fb604d2bd2076a59257868e04ebc
+RUN git checkout ee12da3e78b77455b7a72a58a10f18bdafc575b3 || git fetch origin && git checkout ee12da3e78b77455b7a72a58a10f18bdafc575b3
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -226,23 +244,25 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-4.12-relocatable
-RUN git checkout 6d8327037c6e05f140bd3766163e14cc02e7cc6d || git fetch origin && git checkout 6d8327037c6e05f140bd3766163e14cc02e7cc6d
+RUN git checkout 4db18e21d8c3ede8c4311025ebc541dc70f8daad || git fetch origin && git checkout 4db18e21d8c3ede8c4311025ebc541dc70f8daad
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml --with-relative-libdir=../lib/ocaml --enable-runtime-search=always --enable-runtime-search-target
 RUN make -j
 RUN make -j ocamlnat
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout 9a1569205a644085d247cf05fe51cbe79e309c0a || git fetch origin && git checkout 9a1569205a644085d247cf05fe51cbe79e309c0a
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout 6190d679363018e09d76e1ae6811836cc5eeb86b || git fetch origin && git checkout 6190d679363018e09d76e1ae6811836cc5eeb86b
+RUN git checkout 52b967cbf665f6b8c488e31ab6b64fd05fc8fc79 || git fetch origin && git checkout 52b967cbf665f6b8c488e31ab6b64fd05fc8fc79
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout 57afb7345a4ab23fefb66d2774eff32323c7cc5e || git fetch origin && git checkout 57afb7345a4ab23fefb66d2774eff32323c7cc5e
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout b35b2f848b1ab77724128667dd6f5936cdf456fb || git fetch origin && git checkout b35b2f848b1ab77724128667dd6f5936cdf456fb
+RUN git checkout 13021285a8f2ef98e5c1a0cc435298d2914f0e99 || git fetch origin && git checkout 13021285a8f2ef98e5c1a0cc435298d2914f0e99
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout b9057ac2b131fb604d2bd2076a59257868e04ebc || git fetch origin && git checkout b9057ac2b131fb604d2bd2076a59257868e04ebc
+RUN git checkout ee12da3e78b77455b7a72a58a10f18bdafc575b3 || git fetch origin && git checkout ee12da3e78b77455b7a72a58a10f18bdafc575b3
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -250,23 +270,25 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-4.13-vanilla
-RUN git checkout eda2a97d56d473743f06c924f4694a08999807fa || git fetch origin && git checkout eda2a97d56d473743f06c924f4694a08999807fa
+RUN git checkout c8024d9caccd19b239ddd16d19465b5b93da4487 || git fetch origin && git checkout c8024d9caccd19b239ddd16d19465b5b93da4487
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml
 RUN make -j
 RUN make -j ocamlnat
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout 37d6441898cb66bfeb899b0852a9d60066e4e4d8 || git fetch origin && git checkout 37d6441898cb66bfeb899b0852a9d60066e4e4d8
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout f401aacc1819d9d022afb49850ce6598b313d8cd || git fetch origin && git checkout f401aacc1819d9d022afb49850ce6598b313d8cd
+RUN git checkout 19bdd126b8ff4a90931dae749752f4b3ee642aac || git fetch origin && git checkout 19bdd126b8ff4a90931dae749752f4b3ee642aac
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout 25416d700c3bbb5e0779285cd1880518b0fe9706 || git fetch origin && git checkout 25416d700c3bbb5e0779285cd1880518b0fe9706
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout e7c82d251fb709e7972ffaf299b82dd827bd7b8f || git fetch origin && git checkout e7c82d251fb709e7972ffaf299b82dd827bd7b8f
+RUN git checkout 5f876b79797bfb60b0983632339087e0fc94fe43 || git fetch origin && git checkout 5f876b79797bfb60b0983632339087e0fc94fe43
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout 91ac848e5bc5fd9389a1450cd534286cea8f3817 || git fetch origin && git checkout 91ac848e5bc5fd9389a1450cd534286cea8f3817
+RUN git checkout 5ea0af49dfc4a7709961379efe481f3a910302f3 || git fetch origin && git checkout 5ea0af49dfc4a7709961379efe481f3a910302f3
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -274,23 +296,25 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-4.13-relocatable
-RUN git checkout eda2a97d56d473743f06c924f4694a08999807fa || git fetch origin && git checkout eda2a97d56d473743f06c924f4694a08999807fa
+RUN git checkout c8024d9caccd19b239ddd16d19465b5b93da4487 || git fetch origin && git checkout c8024d9caccd19b239ddd16d19465b5b93da4487
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml --with-relative-libdir=../lib/ocaml --enable-runtime-search=always --enable-runtime-search-target
 RUN make -j
 RUN make -j ocamlnat
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout 37d6441898cb66bfeb899b0852a9d60066e4e4d8 || git fetch origin && git checkout 37d6441898cb66bfeb899b0852a9d60066e4e4d8
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout f401aacc1819d9d022afb49850ce6598b313d8cd || git fetch origin && git checkout f401aacc1819d9d022afb49850ce6598b313d8cd
+RUN git checkout 19bdd126b8ff4a90931dae749752f4b3ee642aac || git fetch origin && git checkout 19bdd126b8ff4a90931dae749752f4b3ee642aac
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout 25416d700c3bbb5e0779285cd1880518b0fe9706 || git fetch origin && git checkout 25416d700c3bbb5e0779285cd1880518b0fe9706
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout e7c82d251fb709e7972ffaf299b82dd827bd7b8f || git fetch origin && git checkout e7c82d251fb709e7972ffaf299b82dd827bd7b8f
+RUN git checkout 5f876b79797bfb60b0983632339087e0fc94fe43 || git fetch origin && git checkout 5f876b79797bfb60b0983632339087e0fc94fe43
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout 91ac848e5bc5fd9389a1450cd534286cea8f3817 || git fetch origin && git checkout 91ac848e5bc5fd9389a1450cd534286cea8f3817
+RUN git checkout 5ea0af49dfc4a7709961379efe481f3a910302f3 || git fetch origin && git checkout 5ea0af49dfc4a7709961379efe481f3a910302f3
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -298,22 +322,24 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-4.14-vanilla
-RUN git checkout 32d46126b2b993a7ac526a339c85d528d3a280cd || git fetch origin && git checkout 32d46126b2b993a7ac526a339c85d528d3a280cd
+RUN git checkout 08e0bacc8c7efb35797234ba0d1a6ad309e2a5e0 || git fetch origin && git checkout 08e0bacc8c7efb35797234ba0d1a6ad309e2a5e0
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml --enable-native-toplevel
 RUN make -j
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout e1794e2548a1e8f6dc11841b0ac9ad159ca89988 || git fetch origin && git checkout e1794e2548a1e8f6dc11841b0ac9ad159ca89988
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout 86ecf4399873045d7eca03560d9ac84eebae38e8 || git fetch origin && git checkout 86ecf4399873045d7eca03560d9ac84eebae38e8
+RUN git checkout d86b1666cca7237b9c6eaeb9340cab2afe64dd11 || git fetch origin && git checkout d86b1666cca7237b9c6eaeb9340cab2afe64dd11
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout c1eab473cb2384ee8668634936908dc2908ef1d6 || git fetch origin && git checkout c1eab473cb2384ee8668634936908dc2908ef1d6
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout 671122db576cb0e6531cf1fa3b18af225f840c36 || git fetch origin && git checkout 671122db576cb0e6531cf1fa3b18af225f840c36
+RUN git checkout e904df298760e89200408b0207af69b72936d6aa || git fetch origin && git checkout e904df298760e89200408b0207af69b72936d6aa
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout fbf12456dd47d758d1858bd6edf8dd3310a7ca3b || git fetch origin && git checkout fbf12456dd47d758d1858bd6edf8dd3310a7ca3b
+RUN git checkout b273e7bc952a13e48b1ba5643cffcb29208aaba2 || git fetch origin && git checkout b273e7bc952a13e48b1ba5643cffcb29208aaba2
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -321,22 +347,24 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-4.14-relocatable
-RUN git checkout 32d46126b2b993a7ac526a339c85d528d3a280cd || git fetch origin && git checkout 32d46126b2b993a7ac526a339c85d528d3a280cd
+RUN git checkout 08e0bacc8c7efb35797234ba0d1a6ad309e2a5e0 || git fetch origin && git checkout 08e0bacc8c7efb35797234ba0d1a6ad309e2a5e0
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml --enable-native-toplevel --with-relative-libdir=../lib/ocaml --enable-runtime-search=always --enable-runtime-search-target
 RUN make -j
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout e1794e2548a1e8f6dc11841b0ac9ad159ca89988 || git fetch origin && git checkout e1794e2548a1e8f6dc11841b0ac9ad159ca89988
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout 86ecf4399873045d7eca03560d9ac84eebae38e8 || git fetch origin && git checkout 86ecf4399873045d7eca03560d9ac84eebae38e8
+RUN git checkout d86b1666cca7237b9c6eaeb9340cab2afe64dd11 || git fetch origin && git checkout d86b1666cca7237b9c6eaeb9340cab2afe64dd11
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout c1eab473cb2384ee8668634936908dc2908ef1d6 || git fetch origin && git checkout c1eab473cb2384ee8668634936908dc2908ef1d6
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout 671122db576cb0e6531cf1fa3b18af225f840c36 || git fetch origin && git checkout 671122db576cb0e6531cf1fa3b18af225f840c36
+RUN git checkout e904df298760e89200408b0207af69b72936d6aa || git fetch origin && git checkout e904df298760e89200408b0207af69b72936d6aa
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout fbf12456dd47d758d1858bd6edf8dd3310a7ca3b || git fetch origin && git checkout fbf12456dd47d758d1858bd6edf8dd3310a7ca3b
+RUN git checkout b273e7bc952a13e48b1ba5643cffcb29208aaba2 || git fetch origin && git checkout b273e7bc952a13e48b1ba5643cffcb29208aaba2
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -344,22 +372,24 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-5.0-vanilla
-RUN git checkout 82f92de9deed7aaf8ddd04c3dfd375a14a581b6d || git fetch origin && git checkout 82f92de9deed7aaf8ddd04c3dfd375a14a581b6d
+RUN git checkout 6eac835753047f22e5f67e0a889bf9ce56c6e551 || git fetch origin && git checkout 6eac835753047f22e5f67e0a889bf9ce56c6e551
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml --enable-native-toplevel
 RUN make -j
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout 972dcc345df8b5090cbdc4796bacb28af5e13716 || git fetch origin && git checkout 972dcc345df8b5090cbdc4796bacb28af5e13716
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout db6eea87587f286d337af39c2cd4c7aa0311e3ec || git fetch origin && git checkout db6eea87587f286d337af39c2cd4c7aa0311e3ec
+RUN git checkout a5e0f318dd8c10e369837c567959802903fea9de || git fetch origin && git checkout a5e0f318dd8c10e369837c567959802903fea9de
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout aed5720b542993a90a61e77af5139c8771e1a8f8 || git fetch origin && git checkout aed5720b542993a90a61e77af5139c8771e1a8f8
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout dba90aee6889f6f61cfdd34894ba9477ea14be8f || git fetch origin && git checkout dba90aee6889f6f61cfdd34894ba9477ea14be8f
+RUN git checkout bf19ffd83d43442bd52a6f050a4686f110623d96 || git fetch origin && git checkout bf19ffd83d43442bd52a6f050a4686f110623d96
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout 13b35456fbae450d890e09449eef446972b6b412 || git fetch origin && git checkout 13b35456fbae450d890e09449eef446972b6b412
+RUN git checkout eb1b1c26ce983ad119d7d0fc2d0c5ef9ddc9eaaf || git fetch origin && git checkout eb1b1c26ce983ad119d7d0fc2d0c5ef9ddc9eaaf
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -367,22 +397,24 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-5.0-relocatable
-RUN git checkout 82f92de9deed7aaf8ddd04c3dfd375a14a581b6d || git fetch origin && git checkout 82f92de9deed7aaf8ddd04c3dfd375a14a581b6d
+RUN git checkout 6eac835753047f22e5f67e0a889bf9ce56c6e551 || git fetch origin && git checkout 6eac835753047f22e5f67e0a889bf9ce56c6e551
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml --enable-native-toplevel --with-relative-libdir=../lib/ocaml --enable-runtime-search=always --enable-runtime-search-target
 RUN make -j
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout 972dcc345df8b5090cbdc4796bacb28af5e13716 || git fetch origin && git checkout 972dcc345df8b5090cbdc4796bacb28af5e13716
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout db6eea87587f286d337af39c2cd4c7aa0311e3ec || git fetch origin && git checkout db6eea87587f286d337af39c2cd4c7aa0311e3ec
+RUN git checkout a5e0f318dd8c10e369837c567959802903fea9de || git fetch origin && git checkout a5e0f318dd8c10e369837c567959802903fea9de
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout aed5720b542993a90a61e77af5139c8771e1a8f8 || git fetch origin && git checkout aed5720b542993a90a61e77af5139c8771e1a8f8
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout dba90aee6889f6f61cfdd34894ba9477ea14be8f || git fetch origin && git checkout dba90aee6889f6f61cfdd34894ba9477ea14be8f
+RUN git checkout bf19ffd83d43442bd52a6f050a4686f110623d96 || git fetch origin && git checkout bf19ffd83d43442bd52a6f050a4686f110623d96
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout 13b35456fbae450d890e09449eef446972b6b412 || git fetch origin && git checkout 13b35456fbae450d890e09449eef446972b6b412
+RUN git checkout eb1b1c26ce983ad119d7d0fc2d0c5ef9ddc9eaaf || git fetch origin && git checkout eb1b1c26ce983ad119d7d0fc2d0c5ef9ddc9eaaf
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -390,22 +422,24 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-5.1-vanilla
-RUN git checkout 1c481272d70947bb40e2d42a4f30b44a6e648cc0 || git fetch origin && git checkout 1c481272d70947bb40e2d42a4f30b44a6e648cc0
+RUN git checkout 22daa2d8c2ee3ed168e288bcb3351d2c517f7a0f || git fetch origin && git checkout 22daa2d8c2ee3ed168e288bcb3351d2c517f7a0f
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml --enable-native-toplevel
 RUN make -j
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout 9f4c7ad14b14c937e4d67a6fc6192f3ce6e9950a || git fetch origin && git checkout 9f4c7ad14b14c937e4d67a6fc6192f3ce6e9950a
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout 04b42a2363b3a7efa03a8e389572988fb78b0bdb || git fetch origin && git checkout 04b42a2363b3a7efa03a8e389572988fb78b0bdb
+RUN git checkout 11b8a7ae7ea79a73358e241dd7e6a0d79dc655b0 || git fetch origin && git checkout 11b8a7ae7ea79a73358e241dd7e6a0d79dc655b0
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout f2ed45c2d623184ef1f42bca0c1cba18557b1af5 || git fetch origin && git checkout f2ed45c2d623184ef1f42bca0c1cba18557b1af5
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout dd64ef76c9acae89ad83c1e7f5b54bfaaf28343e || git fetch origin && git checkout dd64ef76c9acae89ad83c1e7f5b54bfaaf28343e
+RUN git checkout eac6c9c7bf21c1d1c0141e98d0df1a09de10eecc || git fetch origin && git checkout eac6c9c7bf21c1d1c0141e98d0df1a09de10eecc
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout 61511e1795a4d754990e2cf02dcfde3e7e1de1a4 || git fetch origin && git checkout 61511e1795a4d754990e2cf02dcfde3e7e1de1a4
+RUN git checkout b0030e447cf05876924c39d53fbbde6b5180469a || git fetch origin && git checkout b0030e447cf05876924c39d53fbbde6b5180469a
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -413,22 +447,24 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-5.1-relocatable
-RUN git checkout 1c481272d70947bb40e2d42a4f30b44a6e648cc0 || git fetch origin && git checkout 1c481272d70947bb40e2d42a4f30b44a6e648cc0
+RUN git checkout 22daa2d8c2ee3ed168e288bcb3351d2c517f7a0f || git fetch origin && git checkout 22daa2d8c2ee3ed168e288bcb3351d2c517f7a0f
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml --enable-native-toplevel --with-relative-libdir=../lib/ocaml --enable-runtime-search=always --enable-runtime-search-target
 RUN make -j
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout 9f4c7ad14b14c937e4d67a6fc6192f3ce6e9950a || git fetch origin && git checkout 9f4c7ad14b14c937e4d67a6fc6192f3ce6e9950a
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout 04b42a2363b3a7efa03a8e389572988fb78b0bdb || git fetch origin && git checkout 04b42a2363b3a7efa03a8e389572988fb78b0bdb
+RUN git checkout 11b8a7ae7ea79a73358e241dd7e6a0d79dc655b0 || git fetch origin && git checkout 11b8a7ae7ea79a73358e241dd7e6a0d79dc655b0
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout f2ed45c2d623184ef1f42bca0c1cba18557b1af5 || git fetch origin && git checkout f2ed45c2d623184ef1f42bca0c1cba18557b1af5
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout dd64ef76c9acae89ad83c1e7f5b54bfaaf28343e || git fetch origin && git checkout dd64ef76c9acae89ad83c1e7f5b54bfaaf28343e
+RUN git checkout eac6c9c7bf21c1d1c0141e98d0df1a09de10eecc || git fetch origin && git checkout eac6c9c7bf21c1d1c0141e98d0df1a09de10eecc
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout 61511e1795a4d754990e2cf02dcfde3e7e1de1a4 || git fetch origin && git checkout 61511e1795a4d754990e2cf02dcfde3e7e1de1a4
+RUN git checkout b0030e447cf05876924c39d53fbbde6b5180469a || git fetch origin && git checkout b0030e447cf05876924c39d53fbbde6b5180469a
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -436,22 +472,24 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-5.2-vanilla
-RUN git checkout c5bff8f0c7b102707125b51affecf4aecfce271a || git fetch origin && git checkout c5bff8f0c7b102707125b51affecf4aecfce271a
+RUN git checkout 04de28301181cf00e582c5b8b6877b7d38e0bde8 || git fetch origin && git checkout 04de28301181cf00e582c5b8b6877b7d38e0bde8
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml --enable-native-toplevel
 RUN make -j
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout 254e6cecb0cb12d5a02b04283820425510ba7827 || git fetch origin && git checkout 254e6cecb0cb12d5a02b04283820425510ba7827
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout 908ef4199aacfd3b497922658d7df3ee8997ede9 || git fetch origin && git checkout 908ef4199aacfd3b497922658d7df3ee8997ede9
+RUN git checkout 472843e5195b0da01b5af32517aa2206f33e3790 || git fetch origin && git checkout 472843e5195b0da01b5af32517aa2206f33e3790
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout efa8c8511139572694d5d1a149ee8474613c2895 || git fetch origin && git checkout efa8c8511139572694d5d1a149ee8474613c2895
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout 7728718d120db88a021434171cc7de6eebf83c01 || git fetch origin && git checkout 7728718d120db88a021434171cc7de6eebf83c01
+RUN git checkout 931e829ba3f5e2423e68639298283c13ca971969 || git fetch origin && git checkout 931e829ba3f5e2423e68639298283c13ca971969
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout 6d7b692b9ecc082858afa19d00dbdb9dac676d52 || git fetch origin && git checkout 6d7b692b9ecc082858afa19d00dbdb9dac676d52
+RUN git checkout a910857b6aa2c318cd0627bff545ced82a3ee397 || git fetch origin && git checkout a910857b6aa2c318cd0627bff545ced82a3ee397
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -459,22 +497,24 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-5.2-relocatable
-RUN git checkout c5bff8f0c7b102707125b51affecf4aecfce271a || git fetch origin && git checkout c5bff8f0c7b102707125b51affecf4aecfce271a
+RUN git checkout 04de28301181cf00e582c5b8b6877b7d38e0bde8 || git fetch origin && git checkout 04de28301181cf00e582c5b8b6877b7d38e0bde8
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml --enable-native-toplevel --with-relative-libdir=../lib/ocaml --enable-runtime-search=always --enable-runtime-search-target
 RUN make -j
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout 254e6cecb0cb12d5a02b04283820425510ba7827 || git fetch origin && git checkout 254e6cecb0cb12d5a02b04283820425510ba7827
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout 908ef4199aacfd3b497922658d7df3ee8997ede9 || git fetch origin && git checkout 908ef4199aacfd3b497922658d7df3ee8997ede9
+RUN git checkout 472843e5195b0da01b5af32517aa2206f33e3790 || git fetch origin && git checkout 472843e5195b0da01b5af32517aa2206f33e3790
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout efa8c8511139572694d5d1a149ee8474613c2895 || git fetch origin && git checkout efa8c8511139572694d5d1a149ee8474613c2895
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout 7728718d120db88a021434171cc7de6eebf83c01 || git fetch origin && git checkout 7728718d120db88a021434171cc7de6eebf83c01
+RUN git checkout 931e829ba3f5e2423e68639298283c13ca971969 || git fetch origin && git checkout 931e829ba3f5e2423e68639298283c13ca971969
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout 6d7b692b9ecc082858afa19d00dbdb9dac676d52 || git fetch origin && git checkout 6d7b692b9ecc082858afa19d00dbdb9dac676d52
+RUN git checkout a910857b6aa2c318cd0627bff545ced82a3ee397 || git fetch origin && git checkout a910857b6aa2c318cd0627bff545ced82a3ee397
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -482,22 +522,24 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-5.3-vanilla
-RUN git checkout 489d336937d572ca4736137f7454ebab09254f10 || git fetch origin && git checkout 489d336937d572ca4736137f7454ebab09254f10
+RUN git checkout 4d2a567db0b5967a2c916ea53d7c0b5067098b5c || git fetch origin && git checkout 4d2a567db0b5967a2c916ea53d7c0b5067098b5c
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml --enable-native-toplevel
 RUN make -j
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout 5cf9b0e0b53a4aa102107994e611ee60dab5235c || git fetch origin && git checkout 5cf9b0e0b53a4aa102107994e611ee60dab5235c
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout 01484a48cff1161a480a91528aa840f201b95955 || git fetch origin && git checkout 01484a48cff1161a480a91528aa840f201b95955
+RUN git checkout fd8558a4d224a859edc23304bd1731a2ea62cc83 || git fetch origin && git checkout fd8558a4d224a859edc23304bd1731a2ea62cc83
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout 48ba38b209bb2abcedb76f52d4232f7709745754 || git fetch origin && git checkout 48ba38b209bb2abcedb76f52d4232f7709745754
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout 42789985c1978a88241587dac3260d8d056e5c91 || git fetch origin && git checkout 42789985c1978a88241587dac3260d8d056e5c91
+RUN git checkout b249fb2d8787312a78302136638ccd41bc4466d0 || git fetch origin && git checkout b249fb2d8787312a78302136638ccd41bc4466d0
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout 47f72fb25fa8efaa83afc73622c2a259bc5f404e || git fetch origin && git checkout 47f72fb25fa8efaa83afc73622c2a259bc5f404e
+RUN git checkout 5e0add95bc239e278c89ee52b2128d1dd5ede93d || git fetch origin && git checkout 5e0add95bc239e278c89ee52b2128d1dd5ede93d
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -505,22 +547,24 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-5.3-relocatable
-RUN git checkout 489d336937d572ca4736137f7454ebab09254f10 || git fetch origin && git checkout 489d336937d572ca4736137f7454ebab09254f10
+RUN git checkout 4d2a567db0b5967a2c916ea53d7c0b5067098b5c || git fetch origin && git checkout 4d2a567db0b5967a2c916ea53d7c0b5067098b5c
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml --enable-native-toplevel --with-relative-libdir=../lib/ocaml --enable-runtime-search=always --enable-runtime-search-target
 RUN make -j
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout 5cf9b0e0b53a4aa102107994e611ee60dab5235c || git fetch origin && git checkout 5cf9b0e0b53a4aa102107994e611ee60dab5235c
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout 01484a48cff1161a480a91528aa840f201b95955 || git fetch origin && git checkout 01484a48cff1161a480a91528aa840f201b95955
+RUN git checkout fd8558a4d224a859edc23304bd1731a2ea62cc83 || git fetch origin && git checkout fd8558a4d224a859edc23304bd1731a2ea62cc83
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout 48ba38b209bb2abcedb76f52d4232f7709745754 || git fetch origin && git checkout 48ba38b209bb2abcedb76f52d4232f7709745754
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout 42789985c1978a88241587dac3260d8d056e5c91 || git fetch origin && git checkout 42789985c1978a88241587dac3260d8d056e5c91
+RUN git checkout b249fb2d8787312a78302136638ccd41bc4466d0 || git fetch origin && git checkout b249fb2d8787312a78302136638ccd41bc4466d0
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout 47f72fb25fa8efaa83afc73622c2a259bc5f404e || git fetch origin && git checkout 47f72fb25fa8efaa83afc73622c2a259bc5f404e
+RUN git checkout 5e0add95bc239e278c89ee52b2128d1dd5ede93d || git fetch origin && git checkout 5e0add95bc239e278c89ee52b2128d1dd5ede93d
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -528,22 +572,24 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-5.4-vanilla
-RUN git checkout 834f7ff03effb6863f4e469517d78fdb63549fd0 || git fetch origin && git checkout 834f7ff03effb6863f4e469517d78fdb63549fd0
+RUN git checkout ddeede8d5ee5c3c8ae627fcc33ca2db94fe79c82 || git fetch origin && git checkout ddeede8d5ee5c3c8ae627fcc33ca2db94fe79c82
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml --enable-native-toplevel
 RUN make -j
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout 46e658856dff840119e6cbaa6e0329b26ff42c4c || git fetch origin && git checkout 46e658856dff840119e6cbaa6e0329b26ff42c4c
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout 537240c6b8231f6070e4b60a69fb71d1834e8c2a || git fetch origin && git checkout 537240c6b8231f6070e4b60a69fb71d1834e8c2a
+RUN git checkout 1c85986dbcbd22b13ef5a81c3cad172f1d6a8572 || git fetch origin && git checkout 1c85986dbcbd22b13ef5a81c3cad172f1d6a8572
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout 893f4fc4f7523d140b77d137ddcc71906cc44b20 || git fetch origin && git checkout 893f4fc4f7523d140b77d137ddcc71906cc44b20
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout c80787f7f68d82b2173584073f74a473b39935b8 || git fetch origin && git checkout c80787f7f68d82b2173584073f74a473b39935b8
+RUN git checkout b4493e1950f04108be61424ec51a62f13b9c7664 || git fetch origin && git checkout b4493e1950f04108be61424ec51a62f13b9c7664
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout c4a9c58f54bc549a599cd73c8964046727409dc1 || git fetch origin && git checkout c4a9c58f54bc549a599cd73c8964046727409dc1
+RUN git checkout 15c4f0bf371dbe0032c00598db1b80de6cd7ae30 || git fetch origin && git checkout 15c4f0bf371dbe0032c00598db1b80de6cd7ae30
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -551,22 +597,24 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-5.4-relocatable
-RUN git checkout 834f7ff03effb6863f4e469517d78fdb63549fd0 || git fetch origin && git checkout 834f7ff03effb6863f4e469517d78fdb63549fd0
+RUN git checkout ddeede8d5ee5c3c8ae627fcc33ca2db94fe79c82 || git fetch origin && git checkout ddeede8d5ee5c3c8ae627fcc33ca2db94fe79c82
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml --enable-native-toplevel --with-relative-libdir=../lib/ocaml --enable-runtime-search=always --enable-runtime-search-target
 RUN make -j
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout 46e658856dff840119e6cbaa6e0329b26ff42c4c || git fetch origin && git checkout 46e658856dff840119e6cbaa6e0329b26ff42c4c
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout 537240c6b8231f6070e4b60a69fb71d1834e8c2a || git fetch origin && git checkout 537240c6b8231f6070e4b60a69fb71d1834e8c2a
+RUN git checkout 1c85986dbcbd22b13ef5a81c3cad172f1d6a8572 || git fetch origin && git checkout 1c85986dbcbd22b13ef5a81c3cad172f1d6a8572
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout 893f4fc4f7523d140b77d137ddcc71906cc44b20 || git fetch origin && git checkout 893f4fc4f7523d140b77d137ddcc71906cc44b20
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout c80787f7f68d82b2173584073f74a473b39935b8 || git fetch origin && git checkout c80787f7f68d82b2173584073f74a473b39935b8
+RUN git checkout b4493e1950f04108be61424ec51a62f13b9c7664 || git fetch origin && git checkout b4493e1950f04108be61424ec51a62f13b9c7664
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout c4a9c58f54bc549a599cd73c8964046727409dc1 || git fetch origin && git checkout c4a9c58f54bc549a599cd73c8964046727409dc1
+RUN git checkout 15c4f0bf371dbe0032c00598db1b80de6cd7ae30 || git fetch origin && git checkout 15c4f0bf371dbe0032c00598db1b80de6cd7ae30
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -574,23 +622,25 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-trunk-vanilla
-RUN git checkout 1522b9c99159b6b471f10247b4421ec8c9106427 || git fetch origin && git checkout 1522b9c99159b6b471f10247b4421ec8c9106427
+RUN git checkout 9ece65ae25e6eabe42bd46210de3a87c5a488442 || git fetch origin && git checkout 9ece65ae25e6eabe42bd46210de3a87c5a488442
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml
 RUN make -j
 RUN make -j ocamlnat
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout ab91155bb820e8498aa8966f86f4145a90468ce1 || git fetch origin && git checkout ab91155bb820e8498aa8966f86f4145a90468ce1
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout d391cc2b8b47cb7aeefd246a28279f22b7555d06 || git fetch origin && git checkout d391cc2b8b47cb7aeefd246a28279f22b7555d06
+RUN git checkout 9bf5cdbb4d5d4d63e123be10b8873165490e27a0 || git fetch origin && git checkout 9bf5cdbb4d5d4d63e123be10b8873165490e27a0
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout 2a9dc24d7a0a41dc3a289dfbab1c86b3030ba2dd || git fetch origin && git checkout 2a9dc24d7a0a41dc3a289dfbab1c86b3030ba2dd
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout eaf4016417c1a1e23964cbffa7550b5cf893fc3a || git fetch origin && git checkout eaf4016417c1a1e23964cbffa7550b5cf893fc3a
+RUN git checkout c825ce6d5b357f43ca087c05f6c5e8f959fabd60 || git fetch origin && git checkout c825ce6d5b357f43ca087c05f6c5e8f959fabd60
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout eea5af36d6c58b0a095928181efd0959e6db50e9 || git fetch origin && git checkout eea5af36d6c58b0a095928181efd0959e6db50e9
+RUN git checkout 675ed295f662f94cec3cffda6af753c2cae8caef || git fetch origin && git checkout 675ed295f662f94cec3cffda6af753c2cae8caef
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
@@ -598,23 +648,25 @@ RUN test ! -d _opam
 RUN opam switch create . --empty && opam pin add --no-action --kind=path ocaml-variants .
 RUN opam install ocaml-variants --assume-built
 FROM base AS test-trunk-relocatable
-RUN git checkout 1522b9c99159b6b471f10247b4421ec8c9106427 || git fetch origin && git checkout 1522b9c99159b6b471f10247b4421ec8c9106427
+RUN git checkout 9ece65ae25e6eabe42bd46210de3a87c5a488442 || git fetch origin && git checkout 9ece65ae25e6eabe42bd46210de3a87c5a488442
 RUN ./configure -C --prefix $PWD/_opam --docdir $PWD/_opam/doc/ocaml --with-relative-libdir=../lib/ocaml --enable-runtime-search=always --enable-runtime-search-target
 RUN make -j
 RUN make -j ocamlnat
 RUN make install
 RUN mv _opam _opam.ref
-RUN git checkout ab91155bb820e8498aa8966f86f4145a90468ce1 || git fetch origin && git checkout ab91155bb820e8498aa8966f86f4145a90468ce1
-RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN git checkout d391cc2b8b47cb7aeefd246a28279f22b7555d06 || git fetch origin && git checkout d391cc2b8b47cb7aeefd246a28279f22b7555d06
+RUN git checkout 9bf5cdbb4d5d4d63e123be10b8873165490e27a0 || git fetch origin && git checkout 9bf5cdbb4d5d4d63e123be10b8873165490e27a0
+RUN make install
+RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep ^diff ; fi
+RUN diff -Nrq _opam _opam.ref && rm -rf _opam
+RUN git checkout 2a9dc24d7a0a41dc3a289dfbab1c86b3030ba2dd || git fetch origin && git checkout 2a9dc24d7a0a41dc3a289dfbab1c86b3030ba2dd
 RUN if grep '(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))' * -rI; then false; fi
 RUN if test -n "$(grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -Fvx 'otherlibs/Makefile.otherlibs.common:INSTALL_LIBDIR_LIBNAME = $(INSTALL_LIBDIR)/$(LIBNAME)' | grep -v '^Makefile.common:')"; then grep 'INSTALL_LIBDIR_[A-Za-z_]* *:\?=' * -rI | grep -v '^Makefile.common:'; false; fi
-RUN git checkout eaf4016417c1a1e23964cbffa7550b5cf893fc3a || git fetch origin && git checkout eaf4016417c1a1e23964cbffa7550b5cf893fc3a
+RUN git checkout c825ce6d5b357f43ca087c05f6c5e8f959fabd60 || git fetch origin && git checkout c825ce6d5b357f43ca087c05f6c5e8f959fabd60
 RUN if grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; then grep '^ROOTDIR *=' * -rIl | grep -v '^\(manual\|testsuite\)' | xargs grep -L SUBDIR_NAME | grep -vx 'Makefile\.tools\|api_docgen/Makefile\.common\|\(yacc\|ocamltest\|utils\|lex\|otherlibs/unix\)/Makefile'; false; fi
-RUN git checkout eea5af36d6c58b0a095928181efd0959e6db50e9 || git fetch origin && git checkout eea5af36d6c58b0a095928181efd0959e6db50e9
+RUN git checkout 675ed295f662f94cec3cffda6af753c2cae8caef || git fetch origin && git checkout 675ed295f662f94cec3cffda6af753c2cae8caef
 RUN if grep 'INSTALL_\(DATA\|PROG\)' * -rI | grep -v '^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'; then false; fi
 RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam
-RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi
+RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi
 RUN make INSTALL_MODE=display install
 RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install
 RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install
