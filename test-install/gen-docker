@@ -44,7 +44,9 @@ function build-branch
   echo 'RUN mv _opam _opam.ref'
   # Ensure the Sprinkle commit doesn't change the installation
   git-checkout "$3"
-  echo 'RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam'
+  echo 'RUN make install'
+  echo 'RUN if ! diff -Nrq _opam _opam.ref; then diff -Nr _opam _opam.ref | grep '^diff '; fi'
+  echo 'RUN diff -Nrq _opam _opam.ref && rm -rf _opam'
   # Test the Straighten commit
   git-checkout "$4"
   echo 'RUN if grep '\''(\(COMPLIBDIR\|INSTALL_\(COMPLIBDIR\|INCDIR\|LIBRARIES_MAN_DIR\|PROGRAMS_MAN_DIR\|THREADSLIBDIR\|STDLIB_META_DIR\)\))'\'' * -rI; then false; fi'
@@ -56,7 +58,7 @@ function build-branch
   git-checkout "$6"
   echo 'RUN if grep '\''INSTALL_\(DATA\|PROG\)'\'' * -rI | grep -v '\''^\(Makefile\.common\|configure\|Makefile\.build_config\(\.in\)\?\|config\.\(status\|log\)\):\|^autom4te\.cache\|^[^:]*:#'\''; then false; fi'
   echo 'RUN make install && diff -Nrq _opam _opam.ref && rm -rf _opam'
-  echo 'RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^++ //p" | sort | uniq -d; false; fi'
+  echo 'RUN if test -n "$(make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d)"; then make INSTALL_MODE=list install | sed -ne "s/^-> //p" | sort | uniq -d; false; fi'
   echo 'RUN make INSTALL_MODE=display install'
   echo 'RUN make INSTALL_MODE=opam OPAM_PACKAGE_NAME=ocaml-variants install'
   echo 'RUN make INSTALL_MODE=clone OPAM_PACKAGE_NAME=ocaml-variants install'
@@ -67,12 +69,14 @@ function build-branch
 
 versions=(4.08 4.09 4.10 4.11 4.12 4.13 4.14 5.0 5.1 5.2 5.3 5.4 trunk)
 
+remote='origin/'
+remote=''
 for branch in "${versions[@]}"; do
-  base=$(git -C ../ocaml log -S enable-runtime-search -1 --format=%H origin/backport-$branch)
-  sprinkle=$(git -C ../ocaml log -S COMPILER_ARTEFACT_DIRS -1 --format=%H origin/backport-$branch)
-  clone=$(git -C ../ocaml log -S _clone_MKDIR -1 --format=%H origin/backport-$branch)
-  straighten=$(git -C ../ocaml rev-parse "$clone~6")
-  subdir=$(git -C ../ocaml rev-parse "$clone~5")
+  base=$(git -C ../ocaml log -S enable-runtime-search -1 --format=%H ${remote}backport-$branch)
+  sprinkle=$(git -C ../ocaml log -S COMPILER_ARTEFACT_DIRS -1 --format=%H ${remote}backport-$branch)
+  clone=$(git -C ../ocaml log -S exit_because -1 --format=%H ${remote}backport-$branch)
+  straighten=$(git -C ../ocaml rev-parse "$clone~7")
+  subdir=$(git -C ../ocaml rev-parse "$clone~6")
   for sha in $base $sprinkle $straighten $subdir $clone; do
     echo "$branch: $(git -C ../ocaml log --oneline -1 "$sha")"
   done >&2
