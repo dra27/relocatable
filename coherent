@@ -36,9 +36,6 @@ for version in 4.08 4.09 4.10 4.11 4.12 4.13 4.14 5.0 5.1 5.2 5.3 5.4 trunk; do
   branch relocatable-base-$version upstream/$version
 done
 
-# XXX This may end up needing to go to menu when the upstream PRs are actually opened? (or not: perhaps we'll simply have different branches for that, but they'll get shifted automatically onto relocatable-testing?)
-branch relocatable-testing relocatable-base-trunk
-
 # XXX Better way of doing this?
 for version in 4.08 4.09 4.10 4.11 4.12 4.13 4.14 5.0 5.1 5.2 5.3 5.4 trunk; do
   BRANCH_NAMES["backport-$version"]=''
