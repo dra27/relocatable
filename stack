@@ -81,6 +81,7 @@ re_cache=0
 declare -A SKIP_CACHE
 
 menu=false
+menu_file=""
 while true; do
   case "$1" in
     --cache)
@@ -99,6 +100,9 @@ while true; do
       shift 1
       menu=true
       break;;
+    --use-menu)
+      menu_file="-$2"
+      shift 2;;
     --is-backport)
       if is-backport "$2" "$3"; then
         echo -e "$2 is \e[97molder\e[0m than $3"
@@ -206,19 +210,23 @@ function fixup
 
 if [[ -z $lock ]]; then
 
-  if [[ ! -e ../menu ]]; then
-    echo "Menu (../menu) not found!"
+  TARGETS=()
+
+  if [[ ! -e ../menu$menu_file ]]; then
+    echo "Menu (../menu$menu_file) not found!"
     exit 1
   fi
 
-  . ../menu
+  . "../menu$menu_file"
 
   # The default is to preserve the Changes file
   keep_changes=1
   legacy_empty_commits=0
   linear_commit_history=1
 
-  TARGETS=(trunk 5.4 5.3 5.2 5.1 5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08)
+  if [[ "${#TARGETS[@]}" -eq 0 ]]; then
+    TARGETS=(trunk 5.4 5.3 5.2 5.1 5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08)
+  fi
 
   # Check the branches all exist and collect the commits to stack
   for instruction in "${BRANCHES[@]}"; do
