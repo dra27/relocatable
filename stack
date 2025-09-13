@@ -136,6 +136,8 @@ if [[ -n $1 ]]; then
             keep_changes="$value";;
           legacy_empty_commits)
             legacy_empty_commits="$value";;
+          linear_commit_history)
+            linear_commit_history="$value";;
           *)
             echo "Unexpected key in lock config file: $key"
             exit 1;;
@@ -152,6 +154,7 @@ if [[ -n $1 ]]; then
     else
       keep_changes=0
       legacy_empty_commits=0
+      linear_commit_history=0
     fi
 
     rm -f ../branches
@@ -164,6 +167,7 @@ if [[ -n $1 ]]; then
     # XXX Hack!
     keep_changes=1
     legacy_empty_commits=0
+    linear_commit_history=1
   fi
 else
   lock=''
@@ -206,6 +210,7 @@ if [[ -z $lock ]]; then
   # The default is to preserve the Changes file
   keep_changes=1
   legacy_empty_commits=0
+  linear_commit_history=1
 
   TARGETS=(trunk 5.4 5.3 5.2 5.1 5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08)
 
@@ -567,6 +572,7 @@ if [[ -e ../branches ]]; then
   GIT_INDEX_FILE="$lock_index" git --work-tree=. add -f branches
   echo "keep_changes $keep_changes" > config
   echo "legacy_empty_commits $legacy_empty_commits" >> config
+  echo "linear_commit_history $linear_commit_history" >> config
   GIT_INDEX_FILE="$lock_index" git --work-tree=. add -f config
   cd ..
   rm -rf lock-temp
@@ -698,12 +704,35 @@ function display-with-provenance
   fi
 }
 
+stamping=0
 function reset-committer
 {
-  if ! git rebase --committer-date-is-author-date HEAD~1 &> /dev/null; then
-    git rebase --committer-date-is-author-date HEAD~1
-    echo "Resetting the committer date on the last commit has failed" >&2
-    exit 1
+  info="$(git log -1 --format='%at %ad' --date='format:%z')"
+  this_stamp="${info% *}"
+  this_offset="${info#* }"
+  info="$(git log -1 --format='%ct %cd' --date='format:%z' HEAD~1)"
+  last_stamp="${info% *}"
+  last_stamp=$((last_stamp + 1))
+  last_offset="${info#* }"
+  if [[ $stamping -eq 0 ]]; then
+    stamping=1
+    last_stamp="$this_stamp"
+    last_offset="$this_offset"
+  fi
+  if [[ $this_stamp -ge $last_stamp ]]; then
+    last_stamp="$this_stamp"
+    last_offset="$this_offset"
+  fi
+  if [[ $linear_commit_history -eq 1 ]]; then
+    if ! GIT_COMMITTER_DATE="$last_stamp $last_offset" git commit --allow-empty --amend --no-verify --no-edit &> /dev/null; then
+      GIT_COMMITTER_DATE="$last_stamp $last_offset" git commit --allow-empty --amend --no-verify --no-edit
+      echo "Resetting the committer date on the last commit has failed" >&2
+      exit 1
+    fi
+  else
+    if ! git rebase --committer-date-is-author-date HEAD~1 &> /dev/null; then
+      git rebase --committer-date-is-author-date HEAD~1
+    fi
   fi
 }
 
