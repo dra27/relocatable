@@ -26,12 +26,13 @@ branch ci-unity-4.11 upstream/4.11
 fixup ci-unity-4.11-4.08 upstream/4.08 0
 branch ci-unity-4.12 upstream/4.12
 fixup ci-unity-4.12-4.11 upstream/4.11
+fixup ci-unity-4.12-4.10 upstream/4.10 2
 fixup ci-unity-4.12-4.09 upstream/4.09
 branch ci-unity-4.13 upstream/4.13
 fixup ci-unity-4.13-4.12 upstream/4.12
 fixup ci-unity-4.13-4.11 upstream/4.11 0
 fixup ci-unity-4.13-4.10 upstream/4.10 0
-fixup ci-unity-4.13-4.09 upstream/4.09 0
+fixup ci-unity-4.13-4.09 upstream/4.09
 fixup ci-unity-4.13-4.08 upstream/4.08 5
 
   # Wind forwards to #12664 (Jul 2024). Patching is just for #13065 which added
@@ -48,6 +49,8 @@ branch ci-9488 upstream/4.11
   # in OCaml 4.09)
 branch unified-ci-batch-2 upstream/4.13
 fixup unified-ci-batch-2-4.08 upstream/4.08 0
+
+branch appveyor-setup upstream/4.14
 
 branch apple-arm64-4.08 upstream/4.08
 branch apple-arm64-4.09 upstream/4.09
@@ -70,6 +73,7 @@ branch merge-headers upstream/4.08
   # - Compatibility with -fno-common default in GCC 10 (#9180; 4.09.1)
   #   opam-repository carries a different patch; passing -fcommon to configure
 #  BRANCHES+=(fcommon@4.08)
+branch win32graph-fcommon upstream/4.08
   # - SIGSTKSZ change in glibc 2.34 (#10266 and #10726; 4.13.0, 4.14.0)
   #   opam-repository carries this patch already
 #  BRANCHES+=(sigaltstack sigaltstack-4.09@fixup)
@@ -269,6 +273,10 @@ branch ocamlrun-config upstream/4.12
   # XXX This needs tidying up
 branch runtime-variant-fixes upstream/4.08
 
+branch ocaml-variants upstream/4.13
+fixup ocaml-variants-4.11 upstream/4.11 0
+fixup ocaml-variants-4.09 upstream/4.09 0
+
 # #10243 - check-configure - OCaml 4.13
 #   This allows the autoconf command to be substituted in tools/autogen
 #branch backport-10243 upstream/4.12
@@ -340,6 +348,12 @@ for version in 5.3 5.2 5.1 5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08; do
   fixup in-prefix-test-$version upstream/$version $fixup
 done
 
+# XXX relocatable-testing is now entirely commits which will never go upstream
+# XXX minor-appveyor needs opening as a PR
+# XXX Any additional "for testing purposes" commits can go after minor-appveyor
+branch relocatable-testing relocatable-base-trunk
+branch minor-appveyor upstream/5.4
+
   #  - target-bindir (merged)
 #  BRANCHES+=(target-bindir-5.0@fixup)
   #  - ld.conf-CRLF
@@ -348,7 +362,7 @@ done
   #  - ld.conf-relative
 #  BRANCHES+=(ld.conf-relative unified-ld.conf-relative@4.14)
 #  BRANCHES+=(ld.conf-relative)
-branch ld.conf relocatable-testing
+branch ld.conf relocatable-base-trunk
 fixup ld.conf-5.1 upstream/5.1 1
 fixup ld.conf-4.14 upstream/4.14
 fixup ld.conf-4.13 upstream/4.13
@@ -360,16 +374,22 @@ fixup ld.conf-4.13 upstream/4.13
 branch temp-enable-relative-5.4 upstream/5.4
 fixup temp-enable-relative-4.13 upstream/4.13 0
 
-branch enable-relative relocatable-testing
+branch enable-relative relocatable-base-trunk
 for version in 5.4 5.3 5.2 5.1 5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08; do
   case $version in
-    5.2) fixup='8';;
-    4.10) fixup='15';;
+    5.2) fixup='6';;
+    4.10) fixup='12';;
     *) fixup='';;
   esac
   fixup unified-enable-relative-$version upstream/$version $fixup
 done
 fixup unified-enable-relative relocatable-base-trunk
+# While it would be nice to have a version of the combined PR which has these
+# NFPR commits and then a version (for the Draft on ocaml/ocaml) which doens't,
+# 5.4 and trunk are going to be close enough that it's easier just to put the
+# NFPR on 5.4 and earlier.
+branch unified-enable-relative-NFPR upstream/5.4
+fixup unified-enable-relative-NFPR-4.14 upstream/4.14
 
   #  - ld-warning (proposed for 5.4.0 in #13496)
 #  BRANCHES+=(ld-warning ld-warning-5.0@fixup)
@@ -393,17 +413,18 @@ fixup unified-enable-relative relocatable-base-trunk
 branch runtime-searching-5.3 upstream/5.3
 fixup runtime-searching-5.0 upstream/5.0 0
 
-branch runtime-searching relocatable-testing
+branch runtime-searching relocatable-base-trunk
 fixup unified-runtime-searching relocatable-base-trunk
-fixup unified-relocatable-test-5.3 upstream/5.3 3
+fixup unified-relocatable-test-5.3 upstream/5.3 2
 for version in 5.4 5.3 5.2 5.1 5.0 4.14 4.13 4.12 4.11 4.10 4.09 4.08; do
   case $version in
-    5.2|5.3) fixup='14';;
-    4.10) fixup='17';;
+    5.2|5.3) fixup='13';;
+    4.10) fixup='16';;
     *) fixup='';;
   esac
   fixup unified-runtime-searching-$version upstream/$version $fixup
 done
+branch unified-runtime-searching-NFPR upstream/5.4
 
   # XXX Both these branches are severely "in-flight" and need considerable testing!
 branch export-ignore-relocatable relocatable-base-trunk
@@ -416,25 +437,28 @@ branch std_exit.p.cmx upstream/4.08
 branch bigarray-mli upstream/4.14
 
 branch opam-install-file relocatable-base-trunk
-fixup opam-install-file-5.4 upstream/5.4 3
+fixup opam-install-file-5.4 upstream/5.4 4
 for version in 5.2 5.1 5.0 4.14 4.13 4.12 4.11 4.10 4.08; do
   fixup opam-install-file-$version upstream/$version
 done
-
-#  BRANCHES+=(relocatable-testing)
+branch install_changes upstream/4.13
 
   # Turn off the flambda test in CI on 4.08 for now, since enable-relative isn't
   # fully backported for it.
 branch no-flambda-4.08 upstream/4.08
+
+# Temporary patches placed at the end of the queue to reduce rebuilds. These
+# should be in relocatable-testing or earlier in the series
+#branch temporary-patches relocatable-base-trunk
 
 branch stop-backporting
 
 branch ocaml-config relocatable-base-trunk
 for branch in PATH_MAX \
               refactor-caml_search_dll_in_path \
+              cygwin-path-search \
               remove-caml_cds_file \
               header-parasites \
-              cygwin-path-search \
               refactor-unix-path-search \
               launcher-caml_executable_name \
               launcher-image-handoff unified-launcher-fixes \
@@ -456,11 +480,11 @@ for branch in PATH_MAX \
   case $branch in
     unified-*)
       case $branch in
-        unified-set-runtime-default) fixup=5;;
+        unified-set-runtime-default) fixup='';;
         *) fixup='0';;
       esac
       fixup $branch relocatable-base-trunk $fixup;;
     *)
-      branch $branch relocatable-testing;;
+      branch $branch relocatable-base-trunk;;
   esac
 done

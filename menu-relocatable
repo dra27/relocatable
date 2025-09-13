@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+
+if ! declare -F branch > /dev/null; then
+  echo "This script isn't intended to be executed directly">&2
+  exit 1
+fi
+
+# Building this menu creates the relocatable-ocaml PR branch as backport-trunk
+
+# XXX Update stack to have a variable to override the branch name for backport-trunk specifically
+#     Including being reflected in the lock file
+TARGETS=(trunk)
+
+eval "main_branch() $(declare -f branch | sed '1d')"
+eval "main_fixup() $(declare -f fixup | sed '1d')"
+
+declare -A IGNORED=([relocatable-testing]=1 [minor-appveyor]=1)
+function branch
+{
+  if [[ $2 = 'relocatable-base-trunk' && -z ${IGNORED[$1]} ]]; then
+    main_branch "$@"
+  fi
+}
+
+function fixup
+{
+  if [[ $2 = 'relocatable-base-trunk' && -z ${IGNORED[$1]} ]]; then
+    main_fixup "$@"
+  fi
+}
+
+. ../menu
+
+# XXX Could this whole menu be shared
+
+#branch ld.conf relocatable-base-trunk
+#branch enable-relative relocatable-base-trunk
+#fixup unified-enable-relative relocatable-base-trunk
+#branch runtime-searching relocatable-base-trunk
+#fixup unified-runtime-searching relocatable-base-trunk
+#branch export-ignore-relocatable relocatable-base-trunk
+#branch opam-install-file relocatable-base-trunk
+#branch ocaml-config relocatable-base-trunk
+## XXX Share this with the main menu?
+#for branch in PATH_MAX \
+#              refactor-caml_search_dll_in_path \
+#              cygwin-path-search \
+#              remove-caml_cds_file \
+#              header-parasites \
+#              refactor-unix-path-search \
+#              launcher-caml_executable_name \
+#              launcher-image-handoff unified-launcher-fixes \
+#              environmental-emptiness \
+#              ocamldoc-epoch \
+#              empty-paths unified-empty-env \
+#              loading-errors \
+#              dynamic-tidying \
+#              set-runtime-default unified-set-runtime-default \
+#              win32unix-libopts \
+#              threads.cmxs \
+#              partial-ld unified-installation-tests2 \
+#              flexlink-entrypoint \
+#              bootstrap-config-undoc \
+#              clang-cl-flexdll \
+#              in-prefix-tweaks \
+#              extern-compat \
+#              clean-bootstrap; do
+#  case $branch in
+#    unified-*)
+#      case $branch in
+#        unified-set-runtime-default) fixup='';;
+#        *) fixup='0';;
+#      esac
+#      fixup $branch relocatable-base-trunk $fixup;;
+#    *)
+#      branch $branch relocatable-base-trunk;;
+#  esac
+#done
