@@ -5,9 +5,9 @@ dir="$(dirname $0)"
 if [[ ! -d $dir/ocaml ]]; then
   echo "Expect OCaml clone in $dir/ocaml" >&2
   exit 1
-elif [[ -n "$(git -C "$dir/ocaml" status --porcelain)" ]]; then
-  echo 'The ocaml working tree is not clean' >&2
-  exit 1
+#elif [[ -n "$(git -C "$dir/ocaml" status --porcelain)" ]]; then
+#  echo 'The ocaml working tree is not clean' >&2
+#  exit 1
 fi
 
 if [[ ! -d $dir/opam-repository ]]; then
@@ -45,9 +45,18 @@ function sha256-of
   echo "${SHAS[$1]}"
 }
 
+# These should reflect current reality - i.e. ocaml/opam-repository itself
+declare -A TRUNKS=(\
+  ['4.08.2']=1 ['4.09.2']=1 ['4.10.3']=1 \
+  ['4.11.3']=1 ['4.12.2']=1 ['4.13.2']=1 \
+  ['4.14.3']=1 \
+  ['5.0.1']=1 ['5.1.2']=1 ['5.2.2']=1 \
+  ['5.3.1']=1 ['5.4.0']=1 ['5.5.0']=1)
+
+declare -A DEPLOYED
 function deploy
 {
-  lock="$(git rev-parse --short "$1" 2>/dev/null)"
+  lock="$(git -C ocaml rev-parse --short "$1" 2>/dev/null)"
   contained="$(git -C ocaml branch relocatable-locks --contains "$lock" 2>/dev/null)"
   if [[ -z $contained ]]; then
     echo "Lock not found: $1" >&2
@@ -66,28 +75,32 @@ function deploy
   else
     process_sh_sha256=''
   fi
+  fault=0
+  built=0
   while read -r branch sha; do
-    version="$(git -C ocaml show $sha:VERSION | sed -e '2,$d;1s/+.*//')"
-    echo "  Create $version for $branch ($(git -C ocaml rev-parse --short $sha))"
-    fault=0
-    suffix='+options'
-    for name in ocaml-variants ocaml ocaml-base-compiler ocaml-compiler; do
-      if [[ ! -e opam-repository/packages/$name/$name.$version$suffix ]]; then
-        echo "$name.$version$suffix doesn't exist"
-        fault=1
-      fi
-      suffix=''
-    done
-    if ((fault)); then
-      exit 1
+    if [[ -n ${DEPLOYED[$sha]} ]]; then
+      continue
+    else
+      DEPLOYED[$sha]=1
+      built=1
     fi
-    case $version in
+    version="$(git -C ocaml show $sha:VERSION | sed -e '2,$d;1s/+.*//')"
+    release="${version%~*}"
+    echo "  Create $version for $branch ($(git -C ocaml rev-parse --short $sha)) in $lock"
+    if [[ ! -e opam-repository/packages/ocaml/ocaml.$release ]]; then
+      echo "ocaml.$release doesn't exist"
+      fault=1
+    fi
+    if ((fault)); then
+      continue
+    fi
+    case $release in
       4.08.*|4.09.*) template='4.08';;
       4.10.*|4.11.*) template='4.10';;
       4.12.*|4.13.*) template='4.12';;
-      4.14.*|5.0.*|5.1.*|5.2.*) template="${version%.*}";;
+      4.14.*|5.0.*|5.1.*|5.2.*) template="${release%.*}";;
       5.*.*) template='5.3';;
-      *) echo "Unexpected version: $version"; exit 1;;
+      *) echo "Unexpected release: $release"; exit 1;;
     esac
     sha256="$(sha256-of $sha https://github.com/dra27/ocaml/archive/$sha.tar.gz)"
     mkdir -p opam-repository/packages/relocatable-compiler/relocatable-compiler.$version.$date.${DATES[d$date]}
@@ -99,13 +112,46 @@ function deploy
     else
       transforms=(-e '/\$build/d')
     fi
+    if [[ ! -e opam-repository/packages/ocaml-base-compiler/ocaml-base-compiler.$version ]]; then
+      transforms+=(-e 's/\$legacy//')
+    else
+      transforms+=(-e '/\$legacy/d')
+    fi
+    if [[ $date -ge 20250211 ]]; then
+      transforms+=(-e '/docdir/a\    "--with-relative-libdir=../lib/ocaml" {os != "win32"}' \
+                   -e '/docdir/a\    "--with-relative-libdir=..\\\\lib\\\\ocaml" {os = "win32"}')
+    else
+      transforms+=(-e '/docdir/a\    "--enable-relative"')
+    fi
+    if [[ $date -ge 20250202 ]]; then
+      transforms+=(-e '/docdir/a\    "--with-stublibs=../stublibs" {os != "win32"}' \
+                   -e '/docdir/a\    "--with-stublibs=..\\\\stublibs" {os = "win32"}')
+    fi
+    transforms+=(-e '/docdir/a\    "--enable-runtime-search=always"')
+    if [[ $date -ge 20240924 ]]; then
+      transforms+=(-e '/docdir/a\    "--enable-runtime-search-target"')
+    fi
     {
       sed "${transforms[@]}" \
           -e "s/\\\$version/$version/g" \
+          -e "s/\\\$release/$release/g" \
           -e "s/\\\$lock/$lock/g" \
           -e "s/\\\$branch/$branch/g" \
           -e "s/\\\$sha256/$sha256/g" \
           -e "s/\\\$sha/$sha/g" opam-repository/relocatable-compiler-$template
+      if [[ $date -lt 20250202 && -n ${TRUNKS[$release]} ]]; then
+        cat <<EOF
+setenv: [
+  # The ocaml.$release package doesn't apply these, and this version of
+  # Relocatable OCaml doesn't support --with-stublibs
+  [CAML_LD_LIBRARY_PATH = "%{_:stubsdir}%"]
+  [CAML_LD_LIBRARY_PATH += "%{lib}%/stublibs"]
+]
+x-env-path-rewrite: [
+  [CAML_LD_LIBRARY_PATH (";" {os = "win32"} ":" {os != "win32"}) "target"]
+]
+EOF
+      fi
       if [[ -n $process_sh_script ]]; then
         cat <<EOF
 extra-source "process.sh" {
@@ -122,23 +168,51 @@ Any problems, please check https://github.com/dra27/relocatable/issues
 " {!failure}
 "This switch had to be compiled from sources, but future switches with the 🐌
 same compiler version and configuration should assemble instantly." {!failure & !_:cloned & compiler-cloning:version != "disabled"}
+"As requested, this switch was compiled from sources 😴" {!failure & compiler-cloning:version = "disabled"}
 "Switch cloned by %{_:clone-mechanism}% from %{_:clone-source}% 💨" {!failure & _:cloned}
+]
+EOF
+      else
+        cat <<EOF
+post-messages: [
+"Thanks for trying Relocatable OCaml - sorry there seems to be a problem! 🫣😖
+Relocatable OCaml $version.$date.${DATES[d$date]} is an archive version - please
+try a more recent version.
+" {failure}
+"Thanks for trying Relocatable OCaml! 🥳🙏👏
+This is an archive version from $date - the compiler is relocatable, but opam
+doesn't support cloning it, so while you can rename local switches and so forth,
+you won't see any speed-up in switch creation.
+" {!failure}
 ]
 EOF
       fi
     } > opam-repository/packages/relocatable-compiler/relocatable-compiler.$version.$date.${DATES[d$date]}/opam
     git -C opam-repository add packages/relocatable-compiler/relocatable-compiler.$version.$date.${DATES[d$date]}/opam
   done < <(git -C ocaml show $1:backports)
-  commit_date="$(git -C ocaml log -1 --first-parent --format=%ad $1)"
-  GIT_COMMITTER_DATE="$commit_date" git -C opam-repository commit --date="$commit_date" -m "Deploying $date.${DATES[d$date]} ($lock)"
+  if ((fault)); then
+    exit 1
+  fi
+  if [[ $built -eq 1 ]]; then
+    commit_date="$(git -C ocaml log -1 --first-parent --format=%ad $1)"
+    GIT_COMMITTER_DATE="$commit_date" git -C opam-repository commit --date="$commit_date" -F - <<EOF
+$(git -C ocaml log -1 --first-parent --format=%s $1)
+
+Deploying $date.${DATES[d$date]} ($lock)
+EOF
+  fi
 }
 
-git -C opam-repository checkout -B relocatable relocatable-draft
+# The ~1 is only while flambda bit sits temporarily - that'll need translating
+# to something else when that's fixed!
+git -C opam-repository checkout -B relocatable relocatable-draft~1
+git -C opam-repository checkout relocatable-draft -- relocatable-\* >/dev/null
 git -C opam-repository rm --cached relocatable-\* >/dev/null
 commit_date="$(git -C opam-repository log -1 --format=%cd)"
 GIT_COMMITTER_DATE="$commit_date" git -C opam-repository commit --amend -C HEAD >/dev/null
 
-deploy 344465c433c53e6962628c2a5527e19ec48f2fa9
-deploy 7a4aee514026cfa09082498ef20860da1776797b
+for lock in $(git -C ocaml log --format='%H' --first-parent origin/relocatable-locks --reverse | tail -n +2); do
+  deploy $lock
+done
 
 rm opam-repository/relocatable-compiler-*
