@@ -1659,8 +1659,12 @@ while [[ ${#COMMANDS[@]} -gt 0 ]]; do
       done > branches
       rm -f "$cache_index"
       GIT_INDEX_FILE="$cache_index" git add -f branches
+      if [[ $linear_commit_history -eq 1 ]]; then
+        echo "linear_commit_history $linear_commit_history" > rebase-config
+        GIT_INDEX_FILE="$cache_index" git add -f rebase-config
+      fi
       initial_sha="$(GIT_INDEX_FILE="$cache_index" git write-tree)"
-      rm -f "$cache_index" branches
+      rm -f "$cache_index" branches rebase-config
       found_cache=''
       if ! git rev-parse --verify relocatable-cache &> /dev/null; then
         cache_root=$(git commit-tree '4b825dc642cb6eb9a060e54bf8d69288fbee4904' <<"EOF"
