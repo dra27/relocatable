@@ -359,6 +359,7 @@ base_trunk="${HEADS['relocatable-base-trunk']}"
 if [[ ! -e $state_file ]]; then
   # Remove files leftover by CTRL+C
   rm -f _log
+  rm -rf autom4te.cache
   if [[ -n "$(git status --porcelain)" ]]; then
     echo 'The working tree is not clean' >&2
     exit 1
