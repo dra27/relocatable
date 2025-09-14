@@ -204,9 +204,15 @@ function fixup
   fi
 }
 
-. ../menu
-
 if [[ -z $lock ]]; then
+
+  if [[ ! -e ../menu ]]; then
+    echo "Menu (../menu) not found!"
+    exit 1
+  fi
+
+  . ../menu
+
   # The default is to preserve the Changes file
   keep_changes=1
   legacy_empty_commits=0
