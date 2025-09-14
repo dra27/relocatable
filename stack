@@ -713,6 +713,8 @@ function display-with-provenance
 stamping=0
 function reset-committer
 {
+  info="$(git log -1 --format='%ct')"
+  current_stamp="${info% *}"
   info="$(git log -1 --format='%at %ad' --date='format:%z')"
   this_stamp="${info% *}"
   this_offset="${info#* }"
@@ -730,10 +732,13 @@ function reset-committer
     last_offset="$this_offset"
   fi
   if [[ $linear_commit_history -eq 1 ]]; then
-    if ! GIT_COMMITTER_DATE="$last_stamp $last_offset" git commit --allow-empty --amend --no-verify --no-edit &> /dev/null; then
-      GIT_COMMITTER_DATE="$last_stamp $last_offset" git commit --allow-empty --amend --no-verify --no-edit
-      echo "Resetting the committer date on the last commit has failed" >&2
-      exit 1
+    if [[ $current_stamp != $last_stamp ]]; then
+      if ! GIT_COMMITTER_DATE="$last_stamp $last_offset" git commit --allow-empty --amend --no-verify --no-edit &> /dev/null; then
+        GIT_COMMITTER_DATE="$last_stamp $last_offset" git commit --allow-empty --amend --no-verify --no-edit
+        echo "Resetting the committer date on the last commit has failed" >&2
+        exit 1
+      fi
+      return 1
     fi
   else
     if ! git rebase --committer-date-is-author-date HEAD~1 &> /dev/null; then
@@ -813,6 +818,11 @@ function rebase
           git merge --ff-only $cached &> /dev/null
           if [[ -s boot/ocamlc ]]; then
             echo "Re-using previous bootstrap computation from $cached"
+            if ! reset-committer; then
+              new="$(git rev-parse --short HEAD)"
+              echo "  Reset committer information on $cached to give $new"
+              cached="$new"
+            fi
             if ((backporting)); then
               THIS_REMAP["$current_pick"]="$cached"
               COMMITS+=("bootstrap $cached")
@@ -1147,8 +1157,7 @@ function coreboot
         if [[ -n $combined ]] && git diff-tree --no-commit-id --name-only -r "$combined" | grep -Fq 'boot/ocaml'; then
           echo "  Re-using previous coreboot computation from $combined"
           git reset --hard $combined &> /dev/null
-          if [[ $(git log -1 --format='%cn <%ce> on %cd') != $(git log -1 --format='%an <%ae> on %ad') ]]; then
-            reset-committer
+          if ! reset-committer; then
             new="$(git rev-parse --short HEAD)"
             echo "  Reset committer information on $combined to give $new"
             combined="$new"
